@@ -72,8 +72,14 @@ POST /projects/{pid}/conversations/{cid}/chat  {"message": "..."}
 
 ## Extensibility (where the next features plug in)
 
-- **RAG / file upload** — deferred. Postgres is already in place; pgvector
-  would be a new column + index, no migration of existing tables.
+- **RAG / file upload — SHIPPED (Part A, Step 6).** `project_files` +
+  `file_chunks` tables, chunk size 1000 / overlap 150, nomic-embed-text-v1.5
+  (local, loaded once) with `search_document:`/`search_query:` task
+  prefixes, vectors in Postgres (pgvector), files in Supabase Storage
+  (`project-files`). `search_chunks()` returns the top-K nearest chunks via
+  `l2_distance`. **Known limit:** retrieval returns nearest matches without a
+  relevance cutoff — a production version would add a distance threshold to
+  avoid injecting irrelevant context.
 - **Roles (RBAC)** — additive: a `role` column on users + a
   `require_admin` dependency. Explicitly out of scope for now.
 - **Streaming** — the LLM boundary is a single `complete()` method;
