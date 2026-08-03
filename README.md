@@ -39,6 +39,14 @@ python -m scripts.init_db
 uvicorn app.main:app --reload
 ```
 
+> **Heavy deps (RAG) on a tight disk?** The embedding stack (torch +
+> sentence-transformers ≈ 1.5GB + model cache ≈ 0.6GB) can be installed into
+> its own venv on a separate partition with the caches redirected, e.g.
+> `python3 -m venv /opt/agentplatform-venv` then
+> `pip install -r requirements.txt` inside it plus
+> `HF_HOME=/opt/hf-cache PIP_CACHE_DIR=/opt/pip-cache` exported when running.
+> Deployment platforms build their own environment anyway.
+
 API docs: http://127.0.0.1:8000/docs
 
 ## Environment variables (`.env`)
