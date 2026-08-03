@@ -99,3 +99,19 @@ class ConversationDetailOut(ConversationOut):
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=10000)
+
+
+# ---------- Files ----------
+
+
+class FileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    project_id: uuid.UUID
+    original_filename: str
+    storage_path: str
+    mime_type: str | None
+    size_bytes: int
+    chunk_count: int
+    created_at: datetime

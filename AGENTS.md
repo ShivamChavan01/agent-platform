@@ -23,11 +23,14 @@ their agent via an LLM API.
 5. One chat endpoint: takes a user message, loads conversation history,
    calls OpenAI with the project's system_prompt + history, saves and
    returns the reply
+6. File upload + RAG (decision made, in scope): upload .txt/.pdf to a
+   project, chunk + embed (nomic-embed-text-v1.5, dim 768, `search_document:`
+   / `search_query:` prefixes), store vectors in Postgres via pgvector,
+   files in Supabase Storage (bucket `project-files`). Chat may retrieve
+   top-K matching chunks and inject them as context.
 
 ## Explicitly OUT OF SCOPE — do not build these unless told otherwise
 - No LangGraph, no multi-agent orchestration, no agent-to-agent routing
-- No pgvector / RAG / embeddings / file upload (decision deferred — ask
-  before building)
 - No "skills" system, no slash commands, no mode-switching within a chat
 - No generative UI / dynamic frontend components
 - No WebSocket streaming (unless explicitly requested later)

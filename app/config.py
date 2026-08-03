@@ -15,6 +15,15 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://openrouter.ai/api/v1"
     default_model: str = "deepseek/deepseek-v4-flash"
 
+    embed_model: str = "nomic-ai/nomic-embed-text-v1.5"
+    embed_dim: int = 768
+
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_storage_bucket: str = "project-files"
+
+    max_upload_bytes: int = 10 * 1024 * 1024
+
 
 @lru_cache
 def get_settings() -> Settings:
