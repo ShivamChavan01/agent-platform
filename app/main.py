@@ -3,7 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.routers import auth, projects
+from app.routers import auth, conversations, projects
 
 
 def _error_response(status_code: int, message: str) -> JSONResponse:
@@ -27,6 +27,7 @@ async def validation_exception_handler(
 
 app.include_router(auth.router)
 app.include_router(projects.router)
+app.include_router(conversations.router)
 
 
 @app.get("/health")

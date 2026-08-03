@@ -65,3 +65,37 @@ class ProjectOut(BaseModel):
 
 def resolve_model(model: str | None) -> str:
     return model or settings.default_model
+
+
+# ---------- Conversations / Messages / Chat ----------
+
+
+class ConversationCreate(BaseModel):
+    title: str | None = Field(default=None, max_length=255)
+
+
+class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    role: str
+    content: str
+    created_at: datetime
+
+
+class ConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    project_id: uuid.UUID
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ConversationDetailOut(ConversationOut):
+    messages: list[MessageOut]
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=10000)
