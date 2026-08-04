@@ -45,7 +45,7 @@ export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
       <div className="msg-avatar">AI</div>
       <div className="assistant-body">
         <div className="assistant-header">
-          <span className="agent-name">AI Workspace</span>
+          <span className="agent-name">openagent</span>
           <span className="msg-time">{timeAgo(message.created_at)}</span>
         </div>
         {message.reasoning && <ThinkingBlock text={message.reasoning} />}

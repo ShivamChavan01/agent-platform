@@ -8,6 +8,7 @@ import { ChatMessage } from "../components/ChatMessage";
 import { Composer } from "../components/Composer";
 import { CanvasPane, type CanvasArtifact } from "../components/CanvasPane";
 import { StreamingMessage, type StreamingDraft, type ToolCallUI } from "../components/StreamingMessage";
+import { ThinkingPhrases } from "../components/ThinkingPhrases";
 import { Icon } from "../components/Icon";
 import { useAuth } from "../App";
 import { Badge } from "@/components/ui/badge";
@@ -320,7 +321,7 @@ export function Workspace() {
                       <div className="thinking-block">
                         <div className="thinking-toggle">
                           <span className="pulse-dot" />
-                          Thinking…
+                          <ThinkingPhrases />
                         </div>
                       </div>
                     </div>

@@ -20,6 +20,7 @@ import {
   FolderOpen,
   LogOut,
 } from "lucide-react";
+import { Logo } from "./Logo";
 
 export const MODEL_CATALOG: ModelOption[] = [
   { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash", description: "Fastest inference, best for code generation and analysis" },
@@ -82,7 +83,11 @@ export function Sidebar({
   return (
     <>
       <aside className={`sidebar ${open ? "open" : "collapsed"}`}>
-        <div className="sidebar-header">
+        <div className="sidebar-header sidebar-header-stack">
+          <div className="sidebar-brand-row">
+            <Logo size={24} />
+            <span className="sidebar-brand-name">openagent</span>
+          </div>
           <Button variant="secondary" className="new-chat-btn gap-1.5 w-full justify-start" onClick={onNewChat}>
             <Plus className="h-3.5 w-3.5" />
             New Chat

@@ -121,6 +121,22 @@ select {
   border-bottom: 1px solid var(--border);
 }
 
+.sidebar-header-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.sidebar-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-brand-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .new-chat-btn {
   display: flex;
   align-items: center;
@@ -660,6 +676,16 @@ select {
     opacity: 1;
     transform: scale(1.2);
   }
+}
+
+.thinking-phrase {
+  display: inline-block;
+  min-width: 150px;
+  text-align: left;
+}
+
+.thinking-phrase.compact {
+  min-width: 130px;
 }
 
 /* Code blocks */

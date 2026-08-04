@@ -2,6 +2,7 @@ import { MarkdownContent } from "./ChatMessage";
 import type { CanvasArtifact } from "./CanvasPane";
 import { Icon } from "./Icon";
 import { ThinkingBlock } from "./ThinkingBlock";
+import { ThinkingPhrases } from "./ThinkingPhrases";
 
 export interface ToolCallUI {
   id: string;
@@ -28,13 +29,13 @@ export function StreamingMessage({ draft, onOpenCanvas }: StreamingMessageProps)
       <div className="msg-avatar">AI</div>
       <div className="assistant-body">
         <div className="assistant-header">
-          <span className="agent-name">AI Workspace</span>
+          <span className="agent-name">openagent</span>
           <span className="msg-time">
             {draft.provider === "fallback" ? (
               <span className="fallback-badge">fallback · {draft.model}</span>
             ) : (
               <span className="msg-time live-dot">
-                <span className="pulse-dot" /> working…
+                <span className="pulse-dot" /> <ThinkingPhrases compact />
               </span>
             )}
           </span>

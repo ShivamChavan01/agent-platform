@@ -69,7 +69,7 @@ export function Composer({ sending, projectModel, attachments, onRemoveAttachmen
           <Textarea
             className="composer-textarea border-0 bg-transparent focus-visible:ring-0 shadow-none resize-none"
             rows={1}
-            placeholder="Message AI Workspace..."
+            placeholder="Message openagent..."
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}

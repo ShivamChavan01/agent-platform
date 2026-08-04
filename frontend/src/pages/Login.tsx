@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../App";
 import { ApiError } from "../lib/api";
 import { Icon } from "../components/Icon";
+import { Logo } from "../components/Logo";
 
 type Mode = "signin" | "signup";
 
@@ -46,9 +47,9 @@ export function Login() {
       <div className="auth-card">
         <div className="auth-logo">
           <span className="auth-logo-icon">
-            <Icon name="code" size={18} />
+            <Logo size={20} />
           </span>
-          <span className="auth-logo-text">AI Workspace</span>
+          <span className="auth-logo-text">openagent</span>
         </div>
 
         <div className="auth-tabs">

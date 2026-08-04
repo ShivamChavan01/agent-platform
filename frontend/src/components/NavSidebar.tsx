@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "./Icon";
+import { Logo } from "./Logo";
 import { initials } from "./Sidebar";
 
 interface NavSidebarProps {
@@ -17,10 +18,8 @@ export function NavSidebar({ active, userName, userEmail, onLogout }: NavSidebar
   return (
     <aside className="sidebar" style={{ position: "relative" }}>
       <div className="sidebar-header">
-        <span className="auth-logo-icon" style={{ width: 28, height: 28, borderRadius: 6 }}>
-          <Icon name="code" size={14} />
-        </span>
-        <span style={{ fontSize: 14, fontWeight: 600 }}>AI Workspace</span>
+        <Logo size={28} />
+        <span style={{ fontSize: 14, fontWeight: 600 }}>openagent</span>
       </div>
 
       <nav className="sidebar-threads">
