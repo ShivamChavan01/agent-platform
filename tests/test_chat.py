@@ -1,25 +1,38 @@
 import pytest
-from types import SimpleNamespace
 
 from app.llm import get_llm_client
-from conftest import auth_headers, register
+from conftest import auth_headers, chat_events, done_event, register
 
 SYSTEM_PROMPT = "You are a helpful support agent."
 
 
 class FakeLLM:
-    def __init__(self, reply="fake assistant reply"):
+    def __init__(self, reply="fake assistant reply", thinking="reasoning out loud"):
         self.reply = reply
+        self.thinking = thinking
         self.calls = []
 
-    def complete(self, model, messages, tools=None):
+    def stream(self, model, messages, tools=None):
         self.calls.append((model, list(messages)))
-        return SimpleNamespace(content=self.reply, tool_calls=None)
+        if self.thinking:
+            yield {"type": "thinking", "text": self.thinking}
+        if self.reply:
+            yield {"type": "content", "text": self.reply}
+        yield {
+            "type": "result",
+            "content": self.reply,
+            "reasoning": self.thinking,
+            "tool_calls": None,
+            "usage": None,
+            "provider": "primary",
+            "model": model,
+        }
 
 
 class FailingLLM:
-    def complete(self, model, messages, tools=None):
+    def stream(self, model, messages, tools=None):
         raise RuntimeError("llm down")
+        yield  # pragma: no cover
 
 
 @pytest.fixture
@@ -70,18 +83,25 @@ def test_create_and_list_conversations(client, project_token):
     assert [c["id"] for c in listed] == [cid]
 
 
-def test_chat_returns_reply_and_persists_messages(client, project_token, use_fake_llm):
+def test_chat_streams_thinking_then_reply_and_persists(client, project_token, use_fake_llm):
     token, pid = project_token
     cid = create_conversation(client, token, pid).json()["id"]
 
-    resp = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "Hi there"},
-    )
-    assert resp.status_code == 200
-    assert resp.json()["content"] == "fake assistant reply"
-    assert resp.json()["role"] == "assistant"
+    resp, events = chat_events(client, token, pid, cid, "Hi there")
+    assert resp.headers["content-type"].startswith("text/event-stream")
+
+    thinking = [ev for ev in events if ev["event"] == "thinking"]
+    assert thinking and thinking[0]["delta"] == "reasoning out loud"
+
+    content = "".join(ev["delta"] for ev in events if ev["event"] == "content")
+    assert content == "fake assistant reply"
+
+    done = done_event(events)
+    assert done is not None
+    assert done["content"] == "fake assistant reply"
+    assert done["model"] == "deepseek/deepseek-v4-flash"
+    assert done["provider"] == "primary"
+    assert done["reasoning"] == "reasoning out loud"
 
     detail = client.get(
         f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
@@ -89,17 +109,16 @@ def test_chat_returns_reply_and_persists_messages(client, project_token, use_fak
     roles = [m["role"] for m in detail["messages"]]
     assert roles == ["user", "assistant"]
     assert detail["messages"][0]["content"] == "Hi there"
+    # reasoning is persisted in its own field, never leaked into content
+    assert detail["messages"][1]["reasoning"] == "reasoning out loud"
+    assert all("reasoning" not in (m["content"] or "") for m in detail["messages"])
 
 
 def test_chat_sends_system_prompt_model_and_history(client, project_token, use_fake_llm):
     token, pid = project_token
     cid = create_conversation(client, token, pid).json()["id"]
     for msg in ["first question", "second question"]:
-        client.post(
-            f"/projects/{pid}/conversations/{cid}/chat",
-            headers=auth_headers(token),
-            json={"message": msg},
-        )
+        chat_events(client, token, pid, cid, msg)
 
     model, messages = use_fake_llm.calls[-1]
     assert model == "deepseek/deepseek-v4-flash"
@@ -138,20 +157,18 @@ def test_chat_other_users_conversation_404(client, project_token):
     assert resp.status_code == 404
 
 
-def test_chat_llm_failure_returns_502_and_keeps_user_message(client, project_token):
+def test_chat_llm_failure_emits_error_event_and_keeps_user_message(client, project_token):
     client.app.dependency_overrides[get_llm_client] = FailingLLM
     token, pid = project_token
     cid = create_conversation(client, token, pid).json()["id"]
 
-    resp = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "hi"},
-    )
+    _, events = chat_events(client, token, pid, cid, "hi")
     client.app.dependency_overrides.pop(get_llm_client, None)
-    assert resp.status_code == 502
-    assert "model" in resp.json()["error"].lower()
-    assert "error" in resp.json()
+
+    errors = [ev for ev in events if ev["event"] == "error"]
+    assert len(errors) == 1
+    assert "model" in errors[0]["error"].lower()
+    assert done_event(events) is None
 
     detail = client.get(
         f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)

@@ -3,6 +3,7 @@ import type { Message } from "../lib/types";
 import type { CanvasArtifact } from "./CanvasPane";
 import { timeAgo } from "../lib/time";
 import { Icon } from "./Icon";
+import { ThinkingBlock } from "./ThinkingBlock";
 
 interface ChatMessageProps {
   message: Message;
@@ -39,13 +40,14 @@ export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
           <span className="agent-name">AI Workspace</span>
           <span className="msg-time">{timeAgo(message.created_at)}</span>
         </div>
+        {message.reasoning && <ThinkingBlock text={message.reasoning} />}
         <MarkdownContent text={message.content} onOpenCanvas={onOpenCanvas} />
       </div>
     </div>
   );
 }
 
-function MarkdownContent({ text, onOpenCanvas }: { text: string; onOpenCanvas?: (a: CanvasArtifact) => void }) {
+export function MarkdownContent({ text, onOpenCanvas }: { text: string; onOpenCanvas?: (a: CanvasArtifact) => void }) {
   const segments = splitCodeBlocks(text);
   return (
     <div className="assistant-content">
@@ -85,7 +87,7 @@ function splitCodeBlocks(text: string): Segment[] {
   return segments;
 }
 
-function CodeBlock({ lang, code, onOpenCanvas }: { lang: string; code: string; onOpenCanvas?: (a: CanvasArtifact) => void }) {
+export function CodeBlock({ lang, code, onOpenCanvas }: { lang: string; code: string; onOpenCanvas?: (a: CanvasArtifact) => void }) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {

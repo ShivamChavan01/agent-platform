@@ -117,6 +117,8 @@ class MessageOut(BaseModel):
     tool_call_id: str | None = None
     tool_name: str | None = None
     tool_arguments: str | None = None
+    # Streamed reasoning persisted so the thinking block survives reload
+    reasoning: str | None = None
 
 
 class ConversationOut(BaseModel):

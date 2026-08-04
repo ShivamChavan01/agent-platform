@@ -39,6 +39,7 @@ export interface Message {
   tool_call_id?: string | null;
   tool_name?: string | null;
   tool_arguments?: string | null;
+  reasoning?: string | null;
 }
 
 export interface ConversationDetail extends Conversation {

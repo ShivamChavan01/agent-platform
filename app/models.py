@@ -98,6 +98,9 @@ class Message(Base, TimestampMixin):
     tool_call_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tool_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tool_arguments: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Streamed reasoning (thinking) shown live in the UI and persisted so it
+    # survives reload (Step 7, live-thinking display)
+    reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
 

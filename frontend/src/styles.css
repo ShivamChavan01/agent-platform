@@ -491,7 +491,7 @@ select {
   margin-bottom: 0;
 }
 
-/* Thinking block (kept for future reasoning support; backend returns none today) */
+/* Thinking block — live reasoning deltas streamed during generation */
 .thinking-block {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -508,6 +508,8 @@ select {
   font-size: 12px;
   color: var(--fg-muted);
   text-align: left;
+  cursor: pointer;
+  user-select: none;
 }
 
 .thinking-toggle .pulse-dot {
@@ -518,13 +520,43 @@ select {
   animation: pulse 2s infinite;
 }
 
-.thinking-content {
+.thinking-body {
   padding: 0 12px 10px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
   font-family: "JetBrains Mono", monospace;
   font-size: 12px;
+  line-height: 1.5;
   color: var(--fg-dim);
-  max-height: 200px;
+  max-height: 320px;
   overflow-y: auto;
+}
+
+/* Fallback provider badge (live badge while streaming on the backup provider) */
+.fallback-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--accent-amber);
+  border: 1px solid color-mix(in srgb, var(--accent-amber) 40%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-dot .pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s infinite;
 }
 
 @keyframes pulse {

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, getToken } from "../lib/api";
 import type { Conversation, ConversationDetail, Message, Project, ProjectFile } from "../lib/types";
 import { Sidebar } from "../components/Sidebar";
 import { Header } from "../components/Header";
 import { ChatMessage } from "../components/ChatMessage";
 import { Composer } from "../components/Composer";
 import { CanvasPane, type CanvasArtifact } from "../components/CanvasPane";
+import { StreamingMessage, type StreamingDraft, type ToolCallUI } from "../components/StreamingMessage";
 import { Icon } from "../components/Icon";
 import { useAuth } from "../App";
 
@@ -22,6 +23,7 @@ export function Workspace() {
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [draft, setDraft] = useState<StreamingDraft | null>(null);
   const [artifact, setArtifact] = useState<CanvasArtifact | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +60,7 @@ export function Workspace() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [detail?.messages.length]);
+  }, [detail?.messages.length, draft?.content.length, draft?.thinking.length]);
 
   const logoutNow = () => {
     logout();
@@ -114,20 +116,90 @@ export function Workspace() {
       created_at: new Date().toISOString(),
     };
     setDetail((d) => (d ? { ...d, messages: [...d.messages, optimistic] } : d));
+    setDraft({ thinking: "", content: "", tools: [], provider: "primary", model: "" });
     try {
-      const reply = await api.post<Message>(`/projects/${projectId}/conversations/${cid}/chat`, { message: text });
+      await streamChat(projectId, cid, text);
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
       if (!d.title) {
         await loadConversations();
       }
-      void reply;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Chat failed");
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
     } finally {
       setSending(false);
+      setDraft(null);
+    }
+  };
+
+  const streamChat = async (pid: string, cid: string, text: string) => {
+    const res = await fetch(`/projects/${pid}/conversations/${cid}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken() ?? ""}`,
+      },
+      body: JSON.stringify({ message: text }),
+    });
+    if (!res.ok) {
+      let message = `Chat failed (${res.status})`;
+      try {
+        const body = await res.json();
+        if (body && typeof body === "object" && "error" in body) message = String((body as { error: unknown }).error);
+      } catch {
+        /* non-JSON error body */
+      }
+      if (res.status === 401) window.dispatchEvent(new Event("aw:unauthorized"));
+      throw new Error(message);
+    }
+    if (!res.body) throw new Error("Chat stream unavailable");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line.startsWith("data:")) continue;
+        let ev: { event?: string; delta?: string; error?: string; id?: string; name?: string; arguments?: string; provider?: string; model?: string };
+        try {
+          ev = JSON.parse(line.slice(5).trim());
+        } catch {
+          continue;
+        }
+        switch (ev.event) {
+          case "thinking":
+            setDraft((d) => (d ? { ...d, thinking: d.thinking + (ev.delta ?? "") } : d));
+            break;
+          case "content":
+            setDraft((d) => (d ? { ...d, content: d.content + (ev.delta ?? "") } : d));
+            break;
+          case "tool": {
+            const tool: ToolCallUI = { id: ev.id ?? "", name: ev.name ?? "tool", arguments: ev.arguments ?? "" };
+            setDraft((d) =>
+              d
+                ? {
+                    ...d,
+                    tools: [...d.tools.filter((t) => t.id !== tool.id), tool],
+                  }
+                : d
+            );
+            break;
+          }
+          case "provider":
+            setDraft((d) => (d ? { ...d, provider: ev.provider ?? "primary", model: ev.model ?? "" } : d));
+            break;
+          case "error":
+            throw new Error(ev.error ?? "The model service is unavailable, please try again");
+        }
+      }
     }
   };
 
@@ -195,7 +267,8 @@ export function Workspace() {
                 {lastMessages.map((m) => (
                   <ChatMessage key={m.id} message={m} onOpenCanvas={openCanvas} />
                 ))}
-                {sending && (
+                {draft && <StreamingMessage draft={draft} onOpenCanvas={openCanvas} />}
+                {sending && !draft && (
                   <div className="assistant-msg">
                     <div className="msg-avatar">AI</div>
                     <div className="assistant-body">

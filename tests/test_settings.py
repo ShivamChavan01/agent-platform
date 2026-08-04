@@ -6,7 +6,7 @@ import pytest
 from app.config import settings
 from app.llm import get_llm_client
 from app.models import Message, UsageEvent
-from conftest import auth_headers, register
+from conftest import auth_headers, chat_events, done_event, register
 
 
 def create_project(client, token, **overrides):
@@ -31,9 +31,18 @@ class UsageLLM:
         self.usage = usage
         self.calls = []
 
-    def complete(self, model, messages, tools=None):
+    def stream(self, model, messages, tools=None):
         self.calls.append((model, list(messages), tools))
-        return SimpleNamespace(content=self.content, tool_calls=None, usage=self.usage)
+        if self.content:
+            yield {"type": "content", "text": self.content}
+        yield {
+            "type": "result",
+            "content": self.content,
+            "tool_calls": None,
+            "usage": self.usage,
+            "provider": "primary",
+            "model": model,
+        }
 
 
 def use_llm(client, llm):
@@ -185,11 +194,7 @@ def test_clear_conversations_removes_messages_not_files(client, db_session):
 
     llm = UsageLLM()
     use_llm(client, llm)
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "hi"},
-    )
+    chat_events(client, token, pid, cid, "hi")
     assert db_session.query(Message).count() == 2
 
     resp = client.delete("/auth/me/conversations", headers=auth_headers(token))
@@ -221,11 +226,7 @@ def test_delete_account_cascades_everything_and_cleans_storage(client, db_sessio
 
     llm = UsageLLM(usage=SimpleNamespace(prompt_tokens=5, completion_tokens=3, total_tokens=8))
     use_llm(client, llm)
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "hi"},
-    )
+    chat_events(client, token, pid, cid, "hi")
     assert db_session.query(UsageEvent).count() == 1
 
     resp = client.delete("/auth/me", headers=auth_headers(token))
@@ -315,11 +316,7 @@ def test_delete_conversation_cascades_messages(client, db_session):
 
     llm = UsageLLM()
     use_llm(client, llm)
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "hi"},
-    )
+    chat_events(client, token, pid, cid, "hi")
     assert db_session.query(Message).count() == 2
 
     assert (
@@ -354,12 +351,15 @@ def test_chat_records_usage_event(client, db_session):
 
     usage = SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15)
     use_llm(client, UsageLLM(content="reply", usage=usage))
-    resp = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "hi"},
-    )
-    assert resp.status_code == 200
+    _, events = chat_events(client, token, pid, cid, "hi")
+    done = done_event(events)
+    assert done is not None
+    assert done["content"] == "reply"
+    assert done["usage"] == {
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "total_tokens": 15,
+    }
 
     row = db_session.query(UsageEvent).one()
     assert row.prompt_tokens == 10
@@ -374,12 +374,8 @@ def test_chat_without_usage_records_nothing(client, db_session):
     cid = create_conversation(client, token, pid).json()["id"]
 
     use_llm(client, UsageLLM(content="reply", usage=None))
-    resp = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "hi"},
-    )
-    assert resp.status_code == 200
+    _, events = chat_events(client, token, pid, cid, "hi")
+    assert done_event(events) is not None
     assert db_session.query(UsageEvent).count() == 0
 
 
@@ -389,17 +385,9 @@ def test_usage_endpoint_aggregates_in_window(client, db_session):
     cid = create_conversation(client, token, pid).json()["id"]
 
     use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15)))
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "one"},
-    )
+    chat_events(client, token, pid, cid, "one")
     use_llm(client, UsageLLM(content="b", usage=SimpleNamespace(prompt_tokens=20, completion_tokens=10, total_tokens=30)))
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "two"},
-    )
+    chat_events(client, token, pid, cid, "two")
 
     resp = client.get("/auth/me/usage", headers=auth_headers(token))
     assert resp.status_code == 200
@@ -416,11 +404,7 @@ def test_usage_window_excludes_old_events(client, db_session):
     cid = create_conversation(client, token, pid).json()["id"]
 
     use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15)))
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "one"},
-    )
+    chat_events(client, token, pid, cid, "one")
     row = db_session.query(UsageEvent).one()
     row.created_at = datetime.now(timezone.utc) - timedelta(hours=5)
     db_session.commit()
@@ -438,11 +422,7 @@ def test_usage_scoped_per_user(client, db_session):
     pid = create_project(client, token_a).json()["id"]
     cid = create_conversation(client, token_a, pid).json()["id"]
     use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=7, completion_tokens=3, total_tokens=10)))
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token_a),
-        json={"message": "hi"},
-    )
+    chat_events(client, token_a, pid, cid, "hi")
 
     token_b = register(client, email="b@example.com").json()["access_token"]
     body = client.get("/auth/me/usage", headers=auth_headers(token_b)).json()
@@ -457,16 +437,21 @@ def test_daily_token_limit_429_when_configured(client, monkeypatch):
     use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=8, completion_tokens=2, total_tokens=10)))
 
     monkeypatch.setattr(settings, "usage_daily_token_limit", 15)
-    ok = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "one"},
-    )
-    assert ok.status_code == 200
+    _, first = chat_events(client, token, pid, cid, "one")
+    assert done_event(first) is not None
+
+    # Second call crosses the limit mid-stream: in-band error event, no done.
+    _, second = chat_events(client, token, pid, cid, "two")
+    assert done_event(second) is None
+    errors = [ev for ev in second if ev["event"] == "error"]
+    assert len(errors) == 1
+    assert "limit" in errors[0]["error"]
+
+    # Already over the limit: rejected at the door with HTTP 429.
     blocked = client.post(
         f"/projects/{pid}/conversations/{cid}/chat",
         headers=auth_headers(token),
-        json={"message": "two"},
+        json={"message": "three"},
     )
     assert blocked.status_code == 429
     assert "error" in blocked.json()

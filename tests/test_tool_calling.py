@@ -5,7 +5,7 @@ import pytest
 from app.llm import get_llm_client
 from app.models import Message
 from app.tools import TOOLS, evaluate_expression, execute_tool
-from conftest import auth_headers, register
+from conftest import auth_headers, chat_events, done_event, register
 
 
 # ---------- Evaluator (pure logic) ----------
@@ -65,9 +65,11 @@ class FunctionCall:
 
 
 class Msg:
-    def __init__(self, content=None, tool_calls=None):
+    def __init__(self, content=None, tool_calls=None, thinking=None, usage=None):
         self.content = content
         self.tool_calls = tool_calls
+        self.thinking = thinking
+        self.usage = usage
 
 
 class ScriptedLLM:
@@ -76,11 +78,38 @@ class ScriptedLLM:
         self.calls = []
         self.index = 0
 
-    def complete(self, model, messages, tools=None):
+    def stream(self, model, messages, tools=None):
         self.calls.append((model, [dict(m) for m in messages], tools))
         out = self.script[min(self.index, len(self.script) - 1)]
         self.index += 1
-        return out
+        if out.thinking:
+            yield {"type": "thinking", "text": out.thinking}
+        if out.content:
+            yield {"type": "content", "text": out.content}
+        calls = None
+        if out.tool_calls:
+            calls = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments or "{}",
+                    },
+                }
+                for tc in out.tool_calls
+            ]
+            for tc in calls:
+                yield {"type": "tool", **tc["function"], "id": tc["id"]}
+        yield {
+            "type": "result",
+            "content": out.content or "",
+            "reasoning": out.thinking,
+            "tool_calls": calls,
+            "usage": out.usage,
+            "provider": "primary",
+            "model": model,
+        }
 
 
 @pytest.fixture
@@ -114,19 +143,21 @@ def test_chat_with_calculator_tool_persists_tool_messages(client, conv):
     token, pid, cid = conv
     llm = ScriptedLLM(
         [
-            Msg(tool_calls=[ToolCall("call_1", "calculator", '{"expression": "17 * 23 + 4"}')]),
+            Msg(tool_calls=[ToolCall("call_1", "calculator", '{"expression": "17 * 23 + 4"}')], thinking="computing"),
             Msg(content="The result of 17 * 23 + 4 is **395**."),
         ]
     )
     overrides(client, llm)
 
-    resp = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "What is 17 * 23 + 4?"},
-    )
-    assert resp.status_code == 200
-    assert resp.json()["content"] == "The result of 17 * 23 + 4 is **395**."
+    _, events = chat_events(client, token, pid, cid, "What is 17 * 23 + 4?")
+    done = done_event(events)
+    assert done is not None
+    assert done["content"] == "The result of 17 * 23 + 4 is **395**."
+
+    # live tool events emitted while the model calls the calculator
+    tool_events = [ev for ev in events if ev["event"] == "tool"]
+    assert tool_events and tool_events[0]["name"] == "calculator"
+    assert tool_events[0]["arguments"] == '{"expression": "17 * 23 + 4"}'
 
     detail = client.get(
         f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
@@ -141,6 +172,7 @@ def test_chat_with_calculator_tool_persists_tool_messages(client, conv):
 
     assistant_call = detail["messages"][1]
     assert assistant_call["content"] == ""
+    assert assistant_call["reasoning"] == "computing"
     calls = json.loads(assistant_call["tool_arguments"])
     assert calls[0]["function"]["name"] == "calculator"
     assert json.loads(calls[0]["function"]["arguments"]) == {"expression": "17 * 23 + 4"}
@@ -156,11 +188,7 @@ def test_tool_result_is_fed_back_with_matching_call_id(client, conv):
     )
     overrides(client, llm)
 
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat",
-        headers=auth_headers(token),
-        json={"message": "hi"},
-    )
+    chat_events(client, token, pid, cid, "hi")
 
     model, messages, tools = llm.calls[1]
     tool_messages = [m for m in messages if m.get("role") == "tool"]
@@ -180,12 +208,8 @@ def test_chat_history_replays_tool_round_in_next_turn(client, conv):
     )
     overrides(client, llm)
 
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "a"}
-    )
-    client.post(
-        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "b"}
-    )
+    chat_events(client, token, pid, cid, "a")
+    chat_events(client, token, pid, cid, "b")
 
     messages = llm.calls[2][1]
     asst = [m for m in messages if m.get("role") == "assistant" and "tool_calls" in m]
@@ -216,11 +240,10 @@ def test_chat_with_search_project_files_tool(client, conv):
     )
     overrides(client, llm)
 
-    resp = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "hi"}
-    )
-    assert resp.status_code == 200
-    assert resp.json()["content"] == "based on files."
+    _, events = chat_events(client, token, pid, cid, "hi")
+    done = done_event(events)
+    assert done is not None
+    assert done["content"] == "based on files."
 
     detail = client.get(
         f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
@@ -238,34 +261,41 @@ def test_chat_loop_stops_after_max_tool_turns(client, conv):
     )
     overrides(client, llm)
 
-    resp = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "hi"}
-    )
-    assert resp.status_code == 502
-    assert "error" in resp.json()
+    _, events = chat_events(client, token, pid, cid, "hi")
+    errors = [ev for ev in events if ev["event"] == "error"]
+    assert len(errors) == 1
+    assert "several tool rounds" in errors[0]["error"]
+    assert done_event(events) is None
 
 
-def test_reasoning_content_is_never_persisted(client, db_session, conv):
+def test_reasoning_is_streamed_and_persisted_separately_from_content(client, db_session, conv):
     token, pid, cid = conv
     llm = ScriptedLLM(
         [
             Msg(
                 tool_calls=[ToolCall("call_r", "calculator", '{"expression": "1+1"}')],
+                thinking="REASONING-SECRET",
             ),
-            Msg(content="2"),
+            Msg(content="2", thinking="REASONING-SECRET"),
         ]
     )
     overrides(client, llm)
 
-    resp = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "hi"}
-    )
-    assert resp.status_code == 200
-    assert resp.json()["content"] == "2"
+    _, events = chat_events(client, token, pid, cid, "hi")
+    # thinking deltas ARE streamed live...
+    thinking = [ev for ev in events if ev["event"] == "thinking"]
+    assert thinking and thinking[0]["delta"] == "REASONING-SECRET"
+    assert done_event(events)["content"] == "2"
+    assert done_event(events)["reasoning"] == "REASONING-SECRET"
 
-    for row in db_session.query(Message).all():
-        assert "SECRET" not in (row.content or "")
-        assert "REASONING" not in (row.content or "")
+    # ...and persisted in the reasoning field, never inside content
+    rows = sorted(db_session.query(Message).all(), key=lambda m: m.created_at)
+    assistants = [r for r in rows if r.role == "assistant"]
+    tool_round, final = assistants[0], assistants[1]
+    assert tool_round.role == "assistant" and tool_round.reasoning == "REASONING-SECRET"
+    assert final.role == "assistant" and final.reasoning == "REASONING-SECRET"
+    assert "REASONING" not in (tool_round.content or "")
+    assert "REASONING" not in (final.content or "")
 
 
 def test_tool_call_arguments_not_persisted_in_history(client, db_session, conv):
@@ -275,11 +305,8 @@ def test_tool_call_arguments_not_persisted_in_history(client, db_session, conv):
     )
     overrides(client, llm)
 
-    resp = client.post(
-        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "hi"}
-    )
-    assert resp.status_code == 200
-    assert resp.json()["content"] == "plain answer"
+    _, events = chat_events(client, token, pid, cid, "hi")
+    assert done_event(events)["content"] == "plain answer"
 
     detail = client.get(
         f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
