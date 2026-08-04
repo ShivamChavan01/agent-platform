@@ -32,7 +32,7 @@ def create_project(
         name=payload.name,
         description=payload.description,
         system_prompt=payload.system_prompt,
-        model=resolve_model(payload.model),
+        model=resolve_model(payload.model, user),
     )
     db.add(project)
     db.commit()
@@ -67,7 +67,7 @@ def update_project(
     project = _get_owned_project(db, user, project_id)
     updates = payload.model_dump(exclude_unset=True)
     if "model" in updates:
-        updates["model"] = resolve_model(updates["model"])
+        updates["model"] = resolve_model(updates["model"], user)
     for field, value in updates.items():
         setattr(project, field, value)
     db.commit()

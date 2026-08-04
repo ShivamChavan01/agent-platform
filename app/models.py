@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Uuid, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.config import settings
@@ -33,6 +33,10 @@ class User(Base, TimestampMixin):
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    preferences: Mapped[dict] = mapped_column(
+        JSON, default=dict, server_default="{}", nullable=False
+    )
 
     projects: Mapped[list["Project"]] = relationship(
         back_populates="owner", cascade="all, delete-orphan"
@@ -69,6 +73,9 @@ class Conversation(Base, TimestampMixin):
         Uuid(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
     )
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pinned: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
 
     project: Mapped["Project"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(
@@ -136,3 +143,29 @@ class FileChunk(Base, TimestampMixin):
     embedding: Mapped[list[float]] = mapped_column(Vector(settings.embed_dim), nullable=False)
 
     file: Mapped["ProjectFile"] = relationship(back_populates="chunks")
+
+
+class UsageEvent(Base, TimestampMixin):
+    """One recordable LLM response per chat turn/request (Step 6, settings metering)."""
+
+    __tablename__ = "usage_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid_pk
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=True
+    )
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        index=True,
+        nullable=True,
+    )
+    model: Mapped[str] = mapped_column(String(255), nullable=False)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_tokens: Mapped[int] = mapped_column(Integer, nullable=False)

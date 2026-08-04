@@ -14,9 +14,14 @@ TEST_DATABASE_URL = "postgresql+psycopg2:///agent_platform_test"
 class FakeStorage:
     def __init__(self):
         self.uploads = {}
+        self.deletes = []
 
     def upload(self, path, data, content_type=None):
         self.uploads[path] = data
+
+    def delete(self, path):
+        self.deletes.append(path)
+        self.uploads.pop(path, None)
 
 
 class FakeEmbedder:
@@ -69,9 +74,12 @@ def client(db_session, fake_storage, fake_embedder):
     app.dependency_overrides.clear()
 
 
-def register(client, email="user@example.com", password="password123"):
+def register(client, email="user@example.com", password="password123", name=None):
+    payload = {"email": email, "password": password}
+    if name is not None:
+        payload["name"] = name
     return client.post(
-        "/auth/register", json={"email": email, "password": password}
+        "/auth/register", json=payload
     )
 
 

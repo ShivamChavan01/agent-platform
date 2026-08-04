@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -12,6 +13,7 @@ from app.config import settings
 class UserRegister(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 class UserLogin(BaseModel):
@@ -19,11 +21,16 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     email: EmailStr
+    name: str | None = None
     created_at: datetime
 
 
@@ -63,8 +70,28 @@ class ProjectOut(BaseModel):
     updated_at: datetime
 
 
-def resolve_model(model: str | None) -> str:
-    return model or settings.default_model
+def resolve_model(model: str | None, user: Any = None) -> str:
+    """Precedence: request model -> user's default_model preference -> global default."""
+    if model:
+        return model
+    prefs = getattr(user, "preferences", None) or {}
+    return prefs.get("default_model") or settings.default_model
+
+
+# ---------- Preferences / Usage ----------
+
+
+class PreferencesUpdate(BaseModel):
+    default_model: str | None = Field(default=None, max_length=255)
+    context_window: int | None = Field(default=None, ge=1, le=512)
+
+
+class UsageOut(BaseModel):
+    requests: int
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    window_hours: int
 
 
 # ---------- Conversations / Messages / Chat ----------
@@ -72,6 +99,11 @@ def resolve_model(model: str | None) -> str:
 
 class ConversationCreate(BaseModel):
     title: str | None = Field(default=None, max_length=255)
+
+
+class ConversationUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=255)
+    pinned: bool | None = None
 
 
 class MessageOut(BaseModel):
@@ -93,6 +125,7 @@ class ConversationOut(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
     title: str | None
+    pinned: bool = False
     created_at: datetime
     updated_at: datetime
 

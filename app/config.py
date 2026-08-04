@@ -24,6 +24,9 @@ class Settings(BaseSettings):
 
     max_upload_bytes: int = 10 * 1024 * 1024
 
+    usage_window_hours: int = 24
+    usage_daily_token_limit: int = 0
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -28,12 +28,21 @@ class LLMClient:
         The caller reads `message.content` (assistant text) and
         `message.tool_calls` (list of function calls). Persistence must only
         ever store `content` — never a stray `reasoning_content` field.
+
+        Token usage (for usage metering) is attached as a non-standard
+        `message.usage` attribute copied from the response, so callers can do
+        `getattr(message, "usage", None)` regardless of SDK shape.
         """
         kwargs: dict[str, Any] = {"model": model, "messages": messages}
         if tools:
             kwargs["tools"] = tools
         response = self._get_client().chat.completions.create(**kwargs)
-        return response.choices[0].message
+        message = response.choices[0].message
+        try:
+            object.__setattr__(message, "usage", response.usage)
+        except Exception:
+            pass
+        return message
 
 
 def build_chat_messages(

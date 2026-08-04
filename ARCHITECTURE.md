@@ -13,12 +13,18 @@ access is filtered by it.
 
 ## Data model
 
-- **User** — email (unique), bcrypt-hashed password
+- **User** — email (unique), bcrypt-hashed password, optional display
+  `name`, `preferences` JSON blob (e.g. `default_model`, `context_window`)
 - **Project** — owned by a user (`user_id` FK). Fields: name, description,
-  system_prompt, model. One project = one AI agent.
-- **Conversation** — belongs to a project (`project_id` FK)
+  system_prompt, model. One project = one AI agent. Default model
+  precedence: request → user's `default_model` preference → global default.
+- **Conversation** — belongs to a project (`project_id` FK), `pinned` flag
+  (pinned sorts first in the list)
 - **Message** — belongs to a conversation (`conversation_id` FK), role
-  (`user`/`assistant`) + content
+  (`user`/`assistant`/`tool`) + content + tool-call metadata
+- **UsageEvent** — one row per model response (`user_id`, optional
+  project/conversation FKs, model, prompt/completion/total tokens). Feeds
+  the settings-page token meter and the optional daily cap.
 
 All FKs cascade on delete; all ids are UUIDs (unguessable — prevents IDOR
 enumeration on top of the ownership checks).
@@ -52,6 +58,12 @@ POST /projects/{pid}/conversations/{cid}/chat  {"message": "..."}
 
 ## Why these choices
 
+- **Usage metering is record-only by default.** `usage_events` captures
+  tokens after every model response; `GET /auth/me/usage` aggregates a
+  rolling window (`usage_window_hours`, default 24). The chat endpoint only
+  hard-blocks (`429`) when `usage_daily_token_limit` is set above 0 — the
+  knob exists but is off by default, so metering never breaks a demo.
+  Recording is best-effort (a failure must never take down a chat request).
 - **JWT, not OAuth2.** OAuth2 is an authorization framework for third-party
   apps. For a first-party email/password API it adds a provider + redirect
   dance with no security benefit. Security comes from bcrypt, short-lived
@@ -89,9 +101,27 @@ POST /projects/{pid}/conversations/{cid}/chat  {"message": "..."}
 - **Observability** — add middleware for request logging / metrics without
   changing routes.
 
+## Settings slice (Step 6) — SHIPPED
+
+- `PATCH /auth/me` — update profile name
+- `GET`/`PATCH /auth/me/preferences` — read/write `default_model`,
+  `context_window` (PATCH merges into the JSON blob)
+- `DELETE /auth/me/conversations` — clear all of a user's conversations
+  (projects + files survive), returns `{"deleted": n}`
+- `DELETE /auth/me` — delete account; cascades projects/conversations/
+  messages/usage, removes file blobs from storage best-effort
+- `GET /auth/me/usage?window_hours=24` — per-user token aggregate
+- `PATCH`/`DELETE /projects/{pid}/conversations/{cid}` — rename, pin, delete
+  a thread; list is sorted pinned-first
+
 ## Known limits (accepted for scope)
 
-- No migrations tooling (Alembic) — `create_all` is used; add Alembic when
-  the schema starts changing.
-- No rate limiting / refresh tokens — out of scope for the assignment.
+- No migration tooling (Alembic) — additive schema changes ship via
+  idempotent scripts in `scripts/` (`init_db.py`, `migrate_settings.py`);
+  each runs `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` and
+  `CREATE TABLE IF NOT EXISTS`, so they're safe to re-run against live
+  Supabase. Tests stay unaffected (drop_all/create_all).
+- No rate limiting / refresh tokens — out of scope for the assignment. A
+  gentle token floor exists via `usage_daily_token_limit` but is off by
+  default.
 - Chat history window is fixed at the last 50 messages.

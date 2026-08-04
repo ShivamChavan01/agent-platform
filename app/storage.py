@@ -8,6 +8,7 @@ from app.config import settings
 
 class StorageBackend(Protocol):
     def upload(self, path: str, data: bytes, content_type: str | None = None) -> None: ...
+    def delete(self, path: str) -> None: ...
 
 
 class SupabaseStorage:
@@ -35,6 +36,9 @@ class SupabaseStorage:
             path, data, file_options=options
         )
 
+    def delete(self, path: str) -> None:
+        self._get_client().storage.from_(self._bucket).remove([path])
+
 
 class LocalStorage:
     """Filesystem fallback so dev/tests don't need Supabase. Path: storage/<path>."""
@@ -46,6 +50,9 @@ class LocalStorage:
         dest = self._base / path
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(data)
+
+    def delete(self, path: str) -> None:
+        (self._base / path).unlink(missing_ok=True)
 
 
 def get_storage() -> StorageBackend:

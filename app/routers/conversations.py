@@ -1,23 +1,26 @@
 import json
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.embeddings import Embedder, get_embedder
 from app.llm import LLMClient, build_chat_messages, get_llm_client
-from app.models import Conversation, Message, Project, User
+from app.models import Conversation, Message, Project, UsageEvent, User
 from app.schemas import (
     ChatRequest,
     ConversationCreate,
     ConversationDetailOut,
     ConversationOut,
+    ConversationUpdate,
     MessageOut,
 )
-from app.services import get_owned_conversation, get_owned_project
+from app.services import get_owned_conversation, get_owned_project, get_user_usage
 from app.tools import MAX_TOOL_TURNS, TOOLS, execute_tool
 
 router = APIRouter()
@@ -53,9 +56,43 @@ def list_conversations(
         db.scalars(
             select(Conversation)
             .where(Conversation.project_id == project_id)
-            .order_by(Conversation.created_at.desc())
+            .order_by(Conversation.pinned.desc(), Conversation.created_at.desc())
         )
     )
+
+
+@router.patch(
+    "/projects/{project_id}/conversations/{conversation_id}",
+    response_model=ConversationOut,
+)
+def update_conversation(
+    project_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    payload: ConversationUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Conversation:
+    conversation = get_owned_conversation(db, user, project_id, conversation_id)
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(conversation, field, value)
+    db.commit()
+    db.refresh(conversation)
+    return conversation
+
+
+@router.delete(
+    "/projects/{project_id}/conversations/{conversation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_conversation(
+    project_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    conversation = get_owned_conversation(db, user, project_id, conversation_id)
+    db.delete(conversation)
+    db.commit()
 
 
 @router.get(
@@ -106,6 +143,9 @@ def chat(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="The model service is unavailable, please try again later",
             )
+
+        _record_usage(db, user, project, conversation, project.model, response)
+        _enforce_usage_limit(db, user)
 
         tool_calls = response.tool_calls
         if not tool_calls:
@@ -174,3 +214,39 @@ def _persist_tool_result(
         )
     )
     db.commit()
+
+
+def _record_usage(
+    db: Session, user: User, project: Project, conversation: Conversation, model: str, response: Any
+) -> None:
+    """Best-effort: one usage_events row per model response (metering must never break chat)."""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+    try:
+        db.add(
+            UsageEvent(
+                user_id=user.id,
+                project_id=project.id,
+                conversation_id=conversation.id,
+                model=model,
+                prompt_tokens=int(usage.prompt_tokens or 0),
+                completion_tokens=int(usage.completion_tokens or 0),
+                total_tokens=int(usage.total_tokens or 0),
+            )
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def _enforce_usage_limit(db: Session, user: User) -> None:
+    limit = settings.usage_daily_token_limit
+    if limit <= 0:
+        return
+    stats = get_user_usage(db, user.id, settings.usage_window_hours)
+    if stats["total_tokens"] >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Daily token usage limit reached, please try again later",
+        )
