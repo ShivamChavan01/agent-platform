@@ -714,6 +714,61 @@ select {
   background: var(--bg-hover);
 }
 
+/* Artifact card — substantial code blocks link to Canvas instead of dumping source inline */
+.artifact-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.artifact-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.artifact-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--surface-code);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.artifact-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.artifact-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  font-family: "JetBrains Mono", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-card-hint {
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+
 .code-body {
   overflow-x: auto;
   padding: 10px 12px;

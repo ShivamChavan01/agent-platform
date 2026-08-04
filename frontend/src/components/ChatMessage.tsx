@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { isValidElement, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "../lib/types";
@@ -6,6 +6,7 @@ import type { CanvasArtifact } from "./CanvasPane";
 import { timeAgo } from "../lib/time";
 import { Icon } from "./Icon";
 import { ThinkingBlock } from "./ThinkingBlock";
+import { deriveFileName, isSubstantialArtifact, toCanvasArtifact, type FencedBlock } from "../lib/artifacts";
 
 interface ChatMessageProps {
   message: Message;
@@ -89,6 +90,10 @@ export function MarkdownContent({ text, onOpenCanvas }: { text: string; onOpenCa
             const code = String(children ?? "").replace(/\n$/, "");
             const isBlock = className ? (className as string).includes("language-") : code.includes("\n");
             if (isBlock) {
+              const block: FencedBlock = { lang: lang ?? "text", code, name: deriveFileName(lang ?? "text", code) };
+              if (onOpenCanvas && isSubstantialArtifact(block)) {
+                return <ArtifactCard block={block} onOpen={() => onOpenCanvas(toCanvasArtifact(block))} />;
+              }
               return <CodeBlock lang={lang ?? "text"} code={code} onOpenCanvas={onOpenCanvas} />;
             }
             return (
@@ -97,11 +102,38 @@ export function MarkdownContent({ text, onOpenCanvas }: { text: string; onOpenCa
               </code>
             );
           },
+          pre({ children }) {
+            // react-markdown hands pre the un-evaluated code component element;
+            // our code override already emits a self-contained block element
+            // (ArtifactCard / CodeBlock), so drop the default <pre> wrapper.
+            return isValidElement(children) ? <>{children}</> : <pre>{children}</pre>;
+          },
         }}
       >
         {text}
       </ReactMarkdown>
     </div>
+  );
+}
+
+function artifactIcon(lang: string): string {
+  if (lang === "html" || lang === "svg" || lang === "xml") return "eye";
+  if (lang === "sh" || lang === "bash") return "terminal";
+  return "code";
+}
+
+export function ArtifactCard({ block, onOpen }: { block: FencedBlock; onOpen: () => void }) {
+  return (
+    <button type="button" className="artifact-card" onClick={onOpen} title={`Open ${block.name} in Canvas`}>
+      <span className="artifact-card-icon">
+        <Icon name={artifactIcon(block.lang)} size={16} />
+      </span>
+      <span className="artifact-card-meta">
+        <span className="artifact-card-name">{block.name}</span>
+        <span className="artifact-card-hint">Click to view in Canvas</span>
+      </span>
+      <span className="code-lang">{block.lang}</span>
+    </button>
   );
 }
 
