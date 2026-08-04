@@ -3,11 +3,13 @@ import { Icon } from "./Icon";
 
 interface ComposerProps {
   sending: boolean;
+  attachment: { name: string } | null;
+  onRemoveAttachment: () => void;
   onSend: (text: string) => void;
   onAttach: (file: File) => void;
 }
 
-export function Composer({ sending, onSend, onAttach }: ComposerProps) {
+export function Composer({ sending, attachment, onRemoveAttachment, onSend, onAttach }: ComposerProps) {
   const [text, setText] = useState("");
   const sendOnEnter = () => localStorage.getItem("aw_send_on_enter") !== "false";
   const fileRef = useRef<HTMLInputElement>(null);
@@ -29,6 +31,20 @@ export function Composer({ sending, onSend, onAttach }: ComposerProps) {
   return (
     <div className="composer-wrap">
       <div className="input-area">
+        {attachment && (
+          <div className="composer-attachment">
+            <Icon name="paperclip" size={12} />
+            <span className="composer-attachment-name">{attachment.name}</span>
+            <button
+              className="composer-attachment-remove"
+              title="Remove attachment"
+              aria-label="Remove attachment"
+              onClick={onRemoveAttachment}
+            >
+              <Icon name="close" size={12} />
+            </button>
+          </div>
+        )}
         <div className="input-box">
           <textarea
             className="composer-textarea"

@@ -102,6 +102,11 @@ select {
   display: flex;
   flex-direction: column;
   transition: margin-left 0.25s ease;
+  margin-left: calc(-1 * var(--sidebar-w));
+}
+
+.sidebar.open {
+  margin-left: 0;
 }
 
 .sidebar.collapsed {
@@ -672,6 +677,48 @@ select {
 .input-area {
   max-width: 720px;
   margin: 0 auto;
+}
+
+.composer-attachment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 340px;
+  padding: 5px 8px 5px 10px;
+  margin-bottom: 6px;
+  background: rgba(39, 39, 42, 0.9);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  border-radius: var(--radius-md);
+  color: var(--fg);
+  font-size: 12.5px;
+}
+
+.composer-attachment-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-attachment-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-dim);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.composer-attachment-remove:hover {
+  color: var(--fg);
+  background: rgba(251, 113, 133, 0.15);
+  color: var(--accent-rose);
 }
 
 .input-box {

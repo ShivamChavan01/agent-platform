@@ -25,6 +25,7 @@ export function Workspace() {
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState<StreamingDraft | null>(null);
   const [artifact, setArtifact] = useState<CanvasArtifact | null>(null);
+  const [attachment, setAttachment] = useState<{ file: File; name: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const openCanvas = (a: CanvasArtifact) => setArtifact(a);
@@ -118,13 +119,18 @@ export function Workspace() {
     setDetail((d) => (d ? { ...d, messages: [...d.messages, optimistic] } : d));
     setDraft({ thinking: "", content: "", tools: [], provider: "primary", model: "" });
     try {
+      if (attachment) {
+        await attachFile(attachment.file);
+      }
       await streamChat(projectId, cid, text);
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
       if (!d.title) {
         await loadConversations();
       }
+      setAttachment(null);
     } catch (err) {
+      // Keep the pending attachment so the user can retry with the same file.
       setError(err instanceof Error ? err.message : "Chat failed");
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
@@ -207,13 +213,9 @@ export function Workspace() {
     if (!projectId) return;
     const form = new FormData();
     form.append("file", file);
-    try {
-      await api.upload<ProjectFile>(`/projects/${projectId}/files`, form);
-      const fs = await api.get<ProjectFile[]>(`/projects/${projectId}/files`);
-      setFiles(fs);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    }
+    await api.upload<ProjectFile>(`/projects/${projectId}/files`, form);
+    const fs = await api.get<ProjectFile[]>(`/projects/${projectId}/files`);
+    setFiles(fs);
   };
 
   const lastMessages = detail?.messages ?? [];
@@ -286,6 +288,9 @@ export function Workspace() {
 
             {files.length > 0 && (
               <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 24px 10px" }}>
+                <div style={{ color: "var(--fg-dim)", fontSize: 12, marginBottom: 6 }}>
+                  Project files · knowledge base for this agent
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {files.map((f) => (
                     <span key={f.id} className="file-chip" style={{ cursor: "default" }}>
@@ -300,7 +305,13 @@ export function Workspace() {
               </div>
             )}
 
-            <Composer sending={sending} onSend={(t) => void sendMessage(t)} onAttach={(f) => void attachFile(f)} />
+            <Composer
+              sending={sending}
+              attachment={attachment ? { name: attachment.name } : null}
+              onRemoveAttachment={() => setAttachment(null)}
+              onSend={(t) => void sendMessage(t)}
+              onAttach={(f) => setAttachment({ file: f, name: f.name })}
+            />
           </div>
 
           {artifact && <CanvasPane artifact={artifact} onClose={() => setArtifact(null)} />}

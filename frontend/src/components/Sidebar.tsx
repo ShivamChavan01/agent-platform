@@ -71,7 +71,7 @@ export function Sidebar({
 
   return (
     <>
-      <aside className={`sidebar ${open ? "open" : ""}`}>
+      <aside className={`sidebar ${open ? "open" : "collapsed"}`}>
         <div className="sidebar-header">
           <button className="new-chat-btn" onClick={onNewChat}>
             <Icon name="plus" size={14} />
