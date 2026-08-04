@@ -10,6 +10,17 @@ import { CanvasPane, type CanvasArtifact } from "../components/CanvasPane";
 import { StreamingMessage, type StreamingDraft, type ToolCallUI } from "../components/StreamingMessage";
 import { Icon } from "../components/Icon";
 import { useAuth } from "../App";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Paperclip } from "lucide-react";
 
 export function Workspace() {
   const { projectId, conversationId } = useParams<{ projectId: string; conversationId: string }>();
@@ -26,6 +37,7 @@ export function Workspace() {
   const [draft, setDraft] = useState<StreamingDraft | null>(null);
   const [artifact, setArtifact] = useState<CanvasArtifact | null>(null);
   const [attachment, setAttachment] = useState<{ file: File; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const openCanvas = (a: CanvasArtifact) => setArtifact(a);
@@ -84,12 +96,17 @@ export function Workspace() {
     await loadConversations();
   };
 
-  const deleteConversation = async (c: Conversation) => {
-    if (!window.confirm(`Delete "${c.title || "Untitled chat"}"?`)) return;
-    await api.delete(`/projects/${projectId}/conversations/${c.id}`);
-    if (c.id === activeId) {
+  const deleteConversation = (c: Conversation) => {
+    setDeleteTarget(c);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await api.delete(`/projects/${projectId}/conversations/${deleteTarget.id}`);
+    if (deleteTarget.id === activeId) {
       navigate(`/app/projects/${projectId}`, { replace: true });
     }
+    setDeleteTarget(null);
     await loadConversations();
   };
 
@@ -221,7 +238,8 @@ export function Workspace() {
   const lastMessages = detail?.messages ?? [];
 
   return (
-    <div className="shell">
+    <>
+      <div className="shell">
       <Sidebar
         conversations={conversations}
         activeId={activeId}
@@ -291,15 +309,15 @@ export function Workspace() {
                 <div style={{ color: "var(--fg-dim)", fontSize: 12, marginBottom: 6 }}>
                   Project files · knowledge base for this agent
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div className="flex flex-wrap gap-1.5">
                   {files.map((f) => (
-                    <span key={f.id} className="file-chip" style={{ cursor: "default" }}>
-                      <Icon name="paperclip" size={12} />
+                    <Badge key={f.id} variant="secondary" className="file-chip gap-1.5 font-normal cursor-default">
+                      <Paperclip className="h-3 w-3 shrink-0" />
                       {f.original_filename}
-                      <span style={{ color: "var(--fg-dim)" }}>
+                      <span className="text-muted-foreground">
                         {f.chunk_count > 0 ? `· ${f.chunk_count} chunks indexed` : "· indexing…"}
                       </span>
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               </div>
@@ -317,6 +335,21 @@ export function Workspace() {
           {artifact && <CanvasPane artifact={artifact} onClose={() => setArtifact(null)} />}
         </div>
       </div>
-    </div>
+      </div>
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete conversation</DialogTitle>
+            <DialogDescription>
+              Delete "{deleteTarget?.title || "Untitled chat"}"? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => void confirmDelete()}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

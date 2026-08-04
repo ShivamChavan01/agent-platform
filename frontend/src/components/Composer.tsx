@@ -1,5 +1,8 @@
 import { useRef, useState } from "react";
-import { Icon } from "./Icon";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Paperclip, Send, X } from "lucide-react";
 
 interface ComposerProps {
   sending: boolean;
@@ -32,22 +35,24 @@ export function Composer({ sending, attachment, onRemoveAttachment, onSend, onAt
     <div className="composer-wrap">
       <div className="input-area">
         {attachment && (
-          <div className="composer-attachment">
-            <Icon name="paperclip" size={12} />
+          <Badge variant="secondary" className="composer-attachment gap-1.5 pr-1.5">
+            <Paperclip className="h-3 w-3 shrink-0" />
             <span className="composer-attachment-name">{attachment.name}</span>
-            <button
-              className="composer-attachment-remove"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 p-0 hover:bg-transparent hover:text-accent-rose shrink-0"
               title="Remove attachment"
               aria-label="Remove attachment"
               onClick={onRemoveAttachment}
             >
-              <Icon name="close" size={12} />
-            </button>
-          </div>
+              <X className="h-3 w-3" />
+            </Button>
+          </Badge>
         )}
         <div className="input-box">
-          <textarea
-            className="composer-textarea"
+          <Textarea
+            className="composer-textarea border-0 bg-transparent focus-visible:ring-0 shadow-none resize-none"
             rows={1}
             placeholder="Message AI Workspace..."
             value={text}
@@ -60,14 +65,16 @@ export function Composer({ sending, attachment, onRemoveAttachment, onSend, onAt
             }}
           />
           <div className="composer-tools">
-            <button
-              className="composer-btn"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="composer-btn gap-1.5"
               title="Attach a file"
               onClick={() => fileRef.current?.click()}
             >
-              <Icon name="paperclip" size={14} />
+              <Paperclip className="h-3.5 w-3.5" />
               Attach
-            </button>
+            </Button>
             <input
               ref={fileRef}
               type="file"
@@ -80,14 +87,16 @@ export function Composer({ sending, attachment, onRemoveAttachment, onSend, onAt
                 e.target.value = "";
               }}
             />
-            <button
+            <Button
+              variant="default"
+              size="sm"
               className="send-btn"
               disabled={!text.trim() || sending}
               onClick={submit}
               title="Send"
             >
-              <Icon name="send" size={14} />
-            </button>
+              <Send className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       </div>

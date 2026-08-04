@@ -1,8 +1,27 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Conversation, ModelOption } from "../lib/types";
 import { groupByDay } from "../lib/time";
-import { Icon } from "./Icon";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Plus,
+  MessageSquare,
+  Pin,
+  Trash2,
+  Settings,
+  FolderOpen,
+  LogOut,
+  Check,
+  ChevronDown,
+} from "lucide-react";
 
 export const MODEL_CATALOG: ModelOption[] = [
   { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash", description: "Fastest inference, best for code generation and analysis" },
@@ -63,20 +82,18 @@ export function Sidebar({
   onModelChange,
   onLogout,
 }: SidebarProps) {
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const navigate = useNavigate();
-
   const groups = groupByDay(conversations);
+  const modelLabel = MODEL_CATALOG.find((m) => m.id === projectModel)?.label ?? projectModel;
 
   return (
     <>
       <aside className={`sidebar ${open ? "open" : "collapsed"}`}>
         <div className="sidebar-header">
-          <button className="new-chat-btn" onClick={onNewChat}>
-            <Icon name="plus" size={14} />
+          <Button variant="secondary" className="new-chat-btn gap-1.5 w-full justify-start" onClick={onNewChat}>
+            <Plus className="h-3.5 w-3.5" />
             New Chat
-          </button>
+          </Button>
         </div>
 
         <nav className="sidebar-threads">
@@ -94,29 +111,33 @@ export function Sidebar({
                   className={`thread-item ${c.id === activeId ? "active" : ""}`}
                   onClick={() => onSelect(c.id)}
                 >
-                  <Icon name="chat" size={14} />
+                  <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-60" />
                   <span className="thread-title">{c.title || "Untitled chat"}</span>
                   <span className="thread-actions">
-                    <button
-                      className="thread-action-btn"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 p-0 thread-action-btn"
                       title={c.pinned ? "Unpin" : "Pin"}
                       onClick={(e) => {
                         e.stopPropagation();
                         onTogglePin(c);
                       }}
                     >
-                      <Icon name="pin" size={12} />
-                    </button>
-                    <button
-                      className="thread-action-btn danger"
+                      <Pin className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 p-0 thread-action-btn text-destructive hover:text-destructive"
                       title="Delete"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDelete(c);
                       }}
                     >
-                      <Icon name="trash" size={12} />
-                    </button>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </span>
                 </div>
               ))}
@@ -124,72 +145,59 @@ export function Sidebar({
           ))}
         </nav>
 
-        <div className="sidebar-footer" style={{ position: "relative" }}>
-          <button
-            className="model-selector"
-            onClick={() => {
-              setModelMenuOpen((v) => !v);
-              setProfileOpen(false);
-            }}
-          >
-            <span className="model-dot" />
-            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {MODEL_CATALOG.find((m) => m.id === projectModel)?.label ?? projectModel}
-            </span>
-            <Icon name="chevronDown" size={14} />
-          </button>
-          <button
-            className="user-profile"
-            onClick={() => {
-              setProfileOpen((v) => !v);
-              setModelMenuOpen(false);
-            }}
-          >
-            <span className="avatar sm">{initials(userName)}</span>
-            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {userName || userEmail}
-            </span>
-          </button>
-
-          {modelMenuOpen && (
-            <div className="profile-dropdown" style={{ bottom: 110, maxHeight: "50vh", overflowY: "auto" }}>
+        <div className="sidebar-footer">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="model-selector w-full justify-start gap-2 h-auto py-2 px-3">
+                <span className="model-dot" />
+                <span className="flex-1 truncate text-left">{modelLabel}</span>
+                <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-56 max-h-[50vh] overflow-y-auto">
               {MODEL_CATALOG.map((m) => (
-                <button
+                <DropdownMenuItem
                   key={m.id}
-                  className="profile-dropdown-item"
-                  onClick={() => {
-                    onModelChange(m.id);
-                    setModelMenuOpen(false);
-                  }}
+                  onClick={() => onModelChange(m.id)}
+                  className="gap-2"
                 >
-                  {m.id === projectModel && <Icon name="check" size={14} />}
-                  <span style={{ flex: 1 }}>{m.label}</span>
-                </button>
+                  {m.id === projectModel && <Check className="h-4 w-4 shrink-0" />}
+                  <span className={m.id === projectModel ? "" : "pl-4"}>{m.label}</span>
+                </DropdownMenuItem>
               ))}
-            </div>
-          )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          {profileOpen && (
-            <div className="profile-dropdown">
-              <div className="profile-dropdown-header">
-                <div className="profile-dropdown-name">{userName || "You"}</div>
-                <div className="profile-dropdown-email">{userEmail}</div>
-              </div>
-              <button className="profile-dropdown-item" onClick={() => navigate("/app/settings")}>
-                <Icon name="settings" size={14} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="user-profile w-full justify-start gap-2 h-auto py-2 px-3">
+                <Avatar className="h-6 w-6">
+                  <AvatarFallback className="text-[10px] bg-accent/20 text-accent">{initials(userName)}</AvatarFallback>
+                </Avatar>
+                <span className="flex-1 truncate text-left">{userName || userEmail}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="text-sm font-medium">{userName || "You"}</div>
+                <div className="text-xs text-muted-foreground">{userEmail}</div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/app/settings")}>
+                <Settings className="h-4 w-4" />
                 Settings
-              </button>
-              <button className="profile-dropdown-item" onClick={() => navigate("/app")}>
-                <Icon name="folder" size={14} />
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/app")}>
+                <FolderOpen className="h-4 w-4" />
                 Projects
-              </button>
-              <div className="profile-divider" />
-              <button className="profile-dropdown-item danger" onClick={onLogout}>
-                <Icon name="logout" size={14} />
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive">
+                <LogOut className="h-4 w-4" />
                 Log out
-              </button>
-            </div>
-          )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
       {open && <div className="sidebar-overlay show" onClick={onClose} />}

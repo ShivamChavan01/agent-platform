@@ -1,7 +1,16 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Icon } from "./Icon";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { initials } from "./Sidebar";
+import { PanelLeft, ChevronRight, Settings, FolderOpen, LogOut } from "lucide-react";
 
 interface HeaderProps {
   title: string;
@@ -14,60 +23,50 @@ interface HeaderProps {
 
 export function Header({ title, breadcrumb, userName, userEmail, onToggleSidebar, onLogout }: HeaderProps) {
   const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <header className="header">
-      <button className="icon-btn" onClick={onToggleSidebar} title="Toggle sidebar">
-        <Icon name="sidebar" size={16} />
-      </button>
+      <Button variant="ghost" size="icon" onClick={onToggleSidebar} title="Toggle sidebar">
+        <PanelLeft className="h-4 w-4" />
+      </Button>
       <span className="header-title">{title}</span>
       <div className="breadcrumb">
         <span className="link" onClick={() => navigate("/app")}>
           Projects
         </span>
-        <Icon name="chevronRight" size={12} />
+        <ChevronRight className="h-3 w-3" />
         <span>{breadcrumb}</span>
       </div>
       <div className="header-spacer" />
-      <div style={{ position: "relative" }}>
-        <button className="icon-btn" onClick={() => setMenuOpen((v) => !v)} title="Profile">
-          <span className="avatar md">{initials(userName)}</span>
-        </button>
-        {menuOpen && (
-          <div className="profile-dropdown" style={{ position: "absolute", top: 34, right: 0, bottom: "auto", left: "auto" }}>
-            <div className="profile-dropdown-header">
-              <div className="profile-dropdown-name">{userName || "You"}</div>
-              <div className="profile-dropdown-email">{userEmail}</div>
-            </div>
-            <button
-              className="profile-dropdown-item"
-              onClick={() => {
-                setMenuOpen(false);
-                navigate("/app/settings");
-              }}
-            >
-              <Icon name="settings" size={14} />
-              Settings
-            </button>
-            <button
-              className="profile-dropdown-item"
-              onClick={() => {
-                setMenuOpen(false);
-                navigate("/app");
-              }}
-            >
-              <Icon name="folder" size={14} />
-              Projects
-            </button>
-            <div className="profile-divider" />
-            <button className="profile-dropdown-item danger" onClick={onLogout}>
-              <Icon name="logout" size={14} />
-              Log out
-            </button>
-          </div>
-        )}
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" title="Profile">
+            <Avatar className="h-7 w-7">
+              <AvatarFallback className="text-[11px] bg-accent/20 text-accent">{initials(userName)}</AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="font-normal">
+            <div className="text-sm font-medium">{userName || "You"}</div>
+            <div className="text-xs text-muted-foreground">{userEmail}</div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => navigate("/app/settings")}>
+            <Settings className="h-4 w-4" />
+            Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate("/app")}>
+            <FolderOpen className="h-4 w-4" />
+            Projects
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive">
+            <LogOut className="h-4 w-4" />
+            Log out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   );
 }
