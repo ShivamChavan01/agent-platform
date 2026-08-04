@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Paperclip } from "lucide-react";
+import { extractArtifacts, isSubstantialArtifact, toCanvasArtifact } from "../lib/artifacts";
 
 export function Workspace() {
   const { projectId, conversationId } = useParams<{ projectId: string; conversationId: string }>();
@@ -35,12 +36,36 @@ export function Workspace() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState<StreamingDraft | null>(null);
-  const [artifact, setArtifact] = useState<CanvasArtifact | null>(null);
+  const [artifactList, setArtifactList] = useState<CanvasArtifact[]>([]);
+  const [artifactActive, setArtifactActive] = useState<string | undefined>(undefined);
+  const [canvasOpen, setCanvasOpen] = useState(false);
   const [attachment, setAttachment] = useState<{ file: File; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const autoOpenedRef = useRef(false);
 
-  const openCanvas = (a: CanvasArtifact) => setArtifact(a);
+  const openCanvas = (a: CanvasArtifact) => {
+    setArtifactList((prev) => {
+      const exists = prev.some((x) => (x.path ?? x.lang) === (a.path ?? a.lang));
+      return exists ? prev : [...prev, a];
+    });
+    setArtifactActive(a.path ?? a.lang);
+    setCanvasOpen(true);
+  };
+
+  // Auto-open the canvas split-view as soon as a substantial fenced code
+  // block (HTML/SVG/previewable or filename-hinted) streams in.
+  useEffect(() => {
+    if (!draft?.content) return;
+    const blocks = extractArtifacts(draft.content);
+    const substantial = blocks.filter(isSubstantialArtifact);
+    if (substantial.length > 0 && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      setArtifactList(substantial.map(toCanvasArtifact));
+      setArtifactActive(substantial[0].name);
+      setCanvasOpen(true);
+    }
+  }, [draft?.content]);
 
   const activeId = conversationId ?? null;
 
@@ -84,10 +109,12 @@ export function Workspace() {
     if (!projectId) return;
     const c = await api.post<Conversation>(`/projects/${projectId}/conversations`, {});
     await loadConversations();
+    setSidebarOpen(false);
     navigate(`/app/projects/${projectId}/conversations/${c.id}`, { replace: true });
   };
 
   const selectConversation = (id: string) => {
+    setSidebarOpen(false);
     navigate(`/app/projects/${projectId}/conversations/${id}`);
   };
 
@@ -127,6 +154,7 @@ export function Workspace() {
     }
     setSending(true);
     setError(null);
+    autoOpenedRef.current = false;
     // optimistic user message
     const optimistic: Message = {
       id: `local-${Date.now()}`,
@@ -333,7 +361,13 @@ export function Workspace() {
             />
           </div>
 
-          {artifact && <CanvasPane artifact={artifact} onClose={() => setArtifact(null)} />}
+          {canvasOpen && artifactList.length > 0 && (
+            <CanvasPane
+              artifacts={artifactList}
+              activeName={artifactActive}
+              onClose={() => setCanvasOpen(false)}
+            />
+          )}
         </div>
       </div>
       </div>

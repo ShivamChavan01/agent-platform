@@ -1,4 +1,6 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Message } from "../lib/types";
 import type { CanvasArtifact } from "./CanvasPane";
 import { timeAgo } from "../lib/time";
@@ -48,43 +50,35 @@ export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
 }
 
 export function MarkdownContent({ text, onOpenCanvas }: { text: string; onOpenCanvas?: (a: CanvasArtifact) => void }) {
-  const segments = splitCodeBlocks(text);
   return (
     <div className="assistant-content">
-      {segments.map((seg, i) =>
-        seg.kind === "code" ? (
-          <CodeBlock key={i} lang={seg.lang ?? "text"} code={seg.code ?? ""} onOpenCanvas={onOpenCanvas} />
-        ) : (
-          <p key={i}>{seg.text ?? ""}</p>
-        )
-      )}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noreferrer">
+              {children}
+            </a>
+          ),
+          code({ className, children, ...props }) {
+            const lang = /language-(\w+)/.exec(className ?? "")?.[1];
+            const code = String(children ?? "").replace(/\n$/, "");
+            const isBlock = className ? (className as string).includes("language-") : code.includes("\n");
+            if (isBlock) {
+              return <CodeBlock lang={lang ?? "text"} code={code} onOpenCanvas={onOpenCanvas} />;
+            }
+            return (
+              <code className="md-inline-code" {...props}>
+                {children}
+              </code>
+            );
+          },
+        }}
+      >
+        {text}
+      </ReactMarkdown>
     </div>
   );
-}
-
-interface Segment {
-  kind: "text" | "code";
-  text?: string;
-  code?: string;
-  lang?: string;
-}
-
-function splitCodeBlocks(text: string): Segment[] {
-  const segments: Segment[] = [];
-  const re = /```(\w*)\n([\s\S]*?)```/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) {
-      segments.push({ kind: "text", text: text.slice(last, m.index) });
-    }
-    segments.push({ kind: "code", lang: m[1] || "text", code: m[2] });
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) {
-    segments.push({ kind: "text", text: text.slice(last) });
-  }
-  return segments;
 }
 
 export function CodeBlock({ lang, code, onOpenCanvas }: { lang: string; code: string; onOpenCanvas?: (a: CanvasArtifact) => void }) {
@@ -115,7 +109,9 @@ export function CodeBlock({ lang, code, onOpenCanvas }: { lang: string; code: st
           </button>
         )}
       </div>
-      <pre className="code-body">{code}</pre>
+      <pre className="code-body">
+        <code>{code}</code>
+      </pre>
     </div>
   );
 }

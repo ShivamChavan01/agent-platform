@@ -8,16 +8,27 @@ export interface CanvasArtifact {
 }
 
 interface CanvasPaneProps {
-  artifact: CanvasArtifact;
+  artifacts: CanvasArtifact[];
+  activeName?: string;
   onClose: () => void;
 }
 
 const PREVIEWABLE = new Set(["html", "svg", "xml"]);
 
-export function CanvasPane({ artifact, onClose }: CanvasPaneProps) {
+export function CanvasPane({ artifacts, activeName, onClose }: CanvasPaneProps) {
   const [tab, setTab] = useState<"code" | "preview">("code");
   const [copied, setCopied] = useState(false);
-  const previewable = PREVIEWABLE.has(artifact.lang.toLowerCase());
+  const [activePath, setActivePath] = useState<string | undefined>(undefined);
+
+  const list = artifacts.length > 0 ? artifacts : [];
+  const activeArtifact =
+    list.find((a) => (a.path ?? a.lang) === (activePath ?? activeName)) ??
+    list.find((a) => (a.path ?? a.lang) === activeName) ??
+    list[0];
+  const artifact = activeArtifact;
+  const previewable = artifact ? PREVIEWABLE.has(artifact.lang.toLowerCase()) : false;
+
+  if (!artifact) return null;
 
   const copy = async () => {
     try {
@@ -32,6 +43,20 @@ export function CanvasPane({ artifact, onClose }: CanvasPaneProps) {
   return (
     <aside className="canvas-pane">
       <div className="canvas-tabs">
+        {list.length > 1 && (
+          <div className="canvas-files">
+            {list.map((a, i) => (
+              <button
+                key={i}
+                className={`canvas-file-tab ${(a.path ?? a.lang) === (artifact.path ?? artifact.lang) ? "active" : ""}`}
+                onClick={() => setActivePath(a.path ?? a.lang)}
+                title={`${a.path ?? a.lang} (${a.lang})`}
+              >
+                {a.path ?? a.lang}
+              </button>
+            ))}
+          </div>
+        )}
         <button
           className={`canvas-tab ${tab === "code" ? "active" : ""}`}
           onClick={() => setTab("code")}
@@ -68,7 +93,19 @@ export function CanvasPane({ artifact, onClose }: CanvasPaneProps) {
             style={{ width: "100%", height: "100%", border: "none", background: "#fff" }}
           />
         ) : (
-          <pre style={{ padding: "14px 16px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.6, color: "var(--fg-muted)", whiteSpace: "pre-wrap", wordBreak: "break-word", background: "var(--surface-code)", minHeight: "100%" }}>
+          <pre
+            style={{
+              padding: "14px 16px",
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: "var(--fg-muted)",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              background: "var(--surface-code)",
+              minHeight: "100%",
+            }}
+          >
             {artifact.code}
           </pre>
         )}

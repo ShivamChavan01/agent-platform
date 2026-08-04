@@ -160,7 +160,16 @@ def chat(
         "you are, answer truthfully with your configured model id; if you are "
         "unsure of your exact version, say so instead of guessing."
     )
-    system = (project.system_prompt or "") + identity_hint
+    artifact_guidance = (
+        "\n\nOutput style: write prose in clean markdown (use **bold**, ## headings, "
+        "- lists, and tables where they help). Whenever you produce code — a script, "
+        "a component, a config, or especially a self-contained UI/HTML file — put it "
+        "in a fenced code block with a language tag (```html, ```python, ```js, etc.). "
+        "For single-file apps or UI previews, provide a complete, runnable HTML file "
+        "in one fenced ```html block. These blocks are rendered in a side panel with "
+        "a live preview, so keep each file self-contained."
+    )
+    system = (project.system_prompt or "") + identity_hint + artifact_guidance
     messages = build_chat_messages(system, history, payload.message)
 
     def sse(payload: dict) -> str:
