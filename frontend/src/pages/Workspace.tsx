@@ -6,6 +6,7 @@ import { Sidebar } from "../components/Sidebar";
 import { Header } from "../components/Header";
 import { ChatMessage } from "../components/ChatMessage";
 import { Composer } from "../components/Composer";
+import { CanvasPane, type CanvasArtifact } from "../components/CanvasPane";
 import { Icon } from "../components/Icon";
 import { useAuth } from "../App";
 
@@ -21,7 +22,10 @@ export function Workspace() {
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [artifact, setArtifact] = useState<CanvasArtifact | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const openCanvas = (a: CanvasArtifact) => setArtifact(a);
 
   const activeId = conversationId ?? null;
 
@@ -175,53 +179,59 @@ export function Workspace() {
           </div>
         )}
 
-        <div className="chat-scroll" ref={scrollRef}>
-          <div className="chat-scroll-inner">
-            {!activeId && (
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <Icon name="chat" size={48} />
-                </div>
-                <h3>{project?.name}</h3>
-                <p>{project?.description || "Start a conversation with this agent."}</p>
-              </div>
-            )}
-            {lastMessages.map((m) => (
-              <ChatMessage key={m.id} message={m} />
-            ))}
-            {sending && (
-              <div className="assistant-msg">
-                <div className="msg-avatar">AI</div>
-                <div className="assistant-body">
-                  <div className="thinking-block">
-                    <div className="thinking-toggle">
-                      <span className="pulse-dot" />
-                      Thinking…
+        <div className="content-split">
+          <div className="chat-pane">
+            <div className="chat-scroll" ref={scrollRef}>
+              <div className="chat-scroll-inner">
+                {!activeId && (
+                  <div className="empty-state">
+                    <div className="empty-state-icon">
+                      <Icon name="chat" size={48} />
+                    </div>
+                    <h3>{project?.name}</h3>
+                    <p>{project?.description || "Start a conversation with this agent."}</p>
+                  </div>
+                )}
+                {lastMessages.map((m) => (
+                  <ChatMessage key={m.id} message={m} onOpenCanvas={openCanvas} />
+                ))}
+                {sending && (
+                  <div className="assistant-msg">
+                    <div className="msg-avatar">AI</div>
+                    <div className="assistant-body">
+                      <div className="thinking-block">
+                        <div className="thinking-toggle">
+                          <span className="pulse-dot" />
+                          Thinking…
+                        </div>
+                      </div>
                     </div>
                   </div>
+                )}
+              </div>
+            </div>
+
+            {files.length > 0 && (
+              <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 24px 10px" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {files.map((f) => (
+                    <span key={f.id} className="file-chip" style={{ cursor: "default" }}>
+                      <Icon name="paperclip" size={12} />
+                      {f.original_filename}
+                      <span style={{ color: "var(--fg-dim)" }}>
+                        {f.chunk_count > 0 ? `· ${f.chunk_count} chunks indexed` : "· indexing…"}
+                      </span>
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
+
+            <Composer sending={sending} onSend={(t) => void sendMessage(t)} onAttach={(f) => void attachFile(f)} />
           </div>
+
+          {artifact && <CanvasPane artifact={artifact} onClose={() => setArtifact(null)} />}
         </div>
-
-        {files.length > 0 && (
-          <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 24px 10px" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {files.map((f) => (
-                <span key={f.id} className="file-chip" style={{ cursor: "default" }}>
-                  <Icon name="paperclip" size={12} />
-                  {f.original_filename}
-                  <span style={{ color: "var(--fg-dim)" }}>
-                    {f.chunk_count > 0 ? `· ${f.chunk_count} chunks indexed` : "· indexing…"}
-                  </span>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <Composer sending={sending} onSend={(t) => void sendMessage(t)} onAttach={(f) => void attachFile(f)} />
       </div>
     </div>
   );

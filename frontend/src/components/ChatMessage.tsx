@@ -1,13 +1,15 @@
 import { useState } from "react";
 import type { Message } from "../lib/types";
+import type { CanvasArtifact } from "./CanvasPane";
 import { timeAgo } from "../lib/time";
 import { Icon } from "./Icon";
 
 interface ChatMessageProps {
   message: Message;
+  onOpenCanvas?: (artifact: CanvasArtifact) => void;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
   if (message.role === "user") {
     return <div className="user-bubble">{message.content}</div>;
   }
@@ -37,19 +39,19 @@ export function ChatMessage({ message }: ChatMessageProps) {
           <span className="agent-name">AI Workspace</span>
           <span className="msg-time">{timeAgo(message.created_at)}</span>
         </div>
-        <MarkdownContent text={message.content} />
+        <MarkdownContent text={message.content} onOpenCanvas={onOpenCanvas} />
       </div>
     </div>
   );
 }
 
-function MarkdownContent({ text }: { text: string }) {
+function MarkdownContent({ text, onOpenCanvas }: { text: string; onOpenCanvas?: (a: CanvasArtifact) => void }) {
   const segments = splitCodeBlocks(text);
   return (
     <div className="assistant-content">
       {segments.map((seg, i) =>
         seg.kind === "code" ? (
-          <CodeBlock key={i} lang={seg.lang ?? "text"} code={seg.code ?? ""} />
+          <CodeBlock key={i} lang={seg.lang ?? "text"} code={seg.code ?? ""} onOpenCanvas={onOpenCanvas} />
         ) : (
           <p key={i}>{seg.text ?? ""}</p>
         )
@@ -83,7 +85,7 @@ function splitCodeBlocks(text: string): Segment[] {
   return segments;
 }
 
-function CodeBlock({ lang, code }: { lang: string; code: string }) {
+function CodeBlock({ lang, code, onOpenCanvas }: { lang: string; code: string; onOpenCanvas?: (a: CanvasArtifact) => void }) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -104,6 +106,12 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
           <Icon name="copy" size={12} />
           {copied ? "Copied" : "Copy"}
         </button>
+        {onOpenCanvas && (
+          <button className="code-header-btn" onClick={() => onOpenCanvas({ code, lang })}>
+            <Icon name="sidebar" size={12} />
+            Canvas
+          </button>
+        )}
       </div>
       <pre className="code-body">{code}</pre>
     </div>

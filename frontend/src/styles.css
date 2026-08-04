@@ -1333,6 +1333,69 @@ html[data-theme="light"] .input-box {
   font-size: 13px;
 }
 
+/* ---------- Canvas (split view) ---------- */
+
+.content-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chat-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.canvas-pane {
+  display: flex;
+  flex-direction: column;
+  width: 46%;
+  flex-shrink: 0;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.canvas-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.canvas-tab {
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  border-radius: var(--radius-sm);
+}
+
+.canvas-tab.active {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.canvas-body {
+  flex: 1;
+  overflow: auto;
+}
+
+@media (max-width: 1024px) {
+  .canvas-pane {
+    width: 40%;
+  }
+}
+
+@media (max-width: 768px) {
+  .canvas-pane {
+    width: 50%;
+  }
+}
+
 .sidebar-overlay {
   display: none;
   position: fixed;

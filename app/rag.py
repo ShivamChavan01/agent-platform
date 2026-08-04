@@ -14,7 +14,14 @@ CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 150
 RETRIEVAL_LIMIT = 4
 
-ALLOWED_EXTENSIONS = {".txt", ".pdf"}
+TEXT_EXTENSIONS = {
+    # plain-text-ish formats decoded as UTF-8
+    ".txt", ".md", ".markdown", ".rst", ".csv", ".json", ".log",
+    ".py", ".js", ".ts", ".tsx", ".jsx", ".html", ".css", ".xml",
+    ".yaml", ".yml", ".toml", ".ini", ".cfg", ".sql", ".sh",
+    ".go", ".rs", ".rb", ".c", ".h", ".cpp", ".hpp", ".java", ".kt", ".swift",
+}
+ALLOWED_EXTENSIONS = TEXT_EXTENSIONS | {".pdf", ".docx"}
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
@@ -38,20 +45,7 @@ def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) 
     return chunks
 
 
-def extract_text(filename: str, data: bytes) -> str:
-    ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only .txt and .pdf files are supported",
-        )
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File exceeds the 10MB size limit",
-        )
-    if ext == ".txt":
-        return data.decode("utf-8", errors="replace")
+def _extract_pdf(data: bytes) -> str:
     try:
         from pypdf import PdfReader
 
@@ -62,6 +56,38 @@ def extract_text(filename: str, data: bytes) -> str:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not read the PDF — the file may be corrupt",
         )
+
+
+def _extract_docx(data: bytes) -> str:
+    try:
+        from docx import Document
+
+        doc = Document(io.BytesIO(data))
+        return "\n".join(p.text for p in doc.paragraphs)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not read the DOCX — the file may be corrupt",
+        )
+
+
+def extract_text(filename: str, data: bytes) -> str:
+    ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported file type — use .txt/.md/.csv/.json/code files, .pdf, or .docx",
+        )
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File exceeds the 10MB size limit",
+        )
+    if ext == ".pdf":
+        return _extract_pdf(data)
+    if ext == ".docx":
+        return _extract_docx(data)
+    return data.decode("utf-8", errors="replace")
 
 
 def embed_chunks(embedder: Embedder, chunks: list[str]) -> list[list[float]]:

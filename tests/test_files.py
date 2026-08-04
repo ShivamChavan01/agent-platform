@@ -118,6 +118,38 @@ def test_upload_bad_extension_400(client, project_token):
     assert "error" in resp.json()
 
 
+def test_upload_markdown_201(client, project_token, db_session):
+    token, pid = project_token
+    resp = upload(client, token, pid, filename="README.md", content=b"# Hello\nSome docs", content_type="text/markdown")
+    assert resp.status_code == 201
+    assert resp.json()["chunk_count"] >= 1
+
+
+def test_upload_code_file_201(client, project_token, db_session):
+    token, pid = project_token
+    resp = upload(client, token, pid, filename="app.py", content=b"print('hi')", content_type="text/x-python")
+    assert resp.status_code == 201
+
+
+def test_upload_docx_201(client, project_token, db_session):
+    import io
+    from docx import Document
+
+    doc = Document()
+    doc.add_paragraph("Lease expires December 2026")
+    buf = io.BytesIO()
+    doc.save(buf)
+    token, pid = project_token
+    resp = upload(
+        client, token, pid,
+        filename="lease.docx",
+        content=buf.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    assert resp.status_code == 201
+    assert resp.json()["chunk_count"] >= 1
+
+
 def test_upload_empty_file_400(client, project_token):
     token, pid = project_token
     resp = upload(client, token, pid, content=b"")
