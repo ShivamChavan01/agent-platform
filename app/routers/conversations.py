@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import uuid
 from typing import Any, Iterator
 
@@ -167,7 +168,8 @@ def chat(
         "in a fenced code block with a language tag (```html, ```python, ```js, etc.). "
         "For single-file apps or UI previews, provide a complete, runnable HTML file "
         "in one fenced ```html block. These blocks are rendered in a side panel with "
-        "a live preview, so keep each file self-contained."
+        "a live preview, so keep each file self-contained. Plain text only — no emojis, "
+        "no decorative symbols, anywhere in your responses."
     )
     system = (project.system_prompt or "") + identity_hint + artifact_guidance
 
@@ -243,7 +245,7 @@ def chat(
 
             tool_calls = result.get("tool_calls")
             if not tool_calls:
-                final_content = "".join(content_parts)
+                final_content = strip_emoji("".join(content_parts))
                 reasoning = "".join(reasoning_parts) or None
                 for part in content_parts:
                     yield sse({"event": "content", "delta": part})
@@ -281,7 +283,7 @@ def chat(
                 return
 
             _persist_assistant_turn(
-                db, cid, "".join(content_parts), tool_calls, "".join(reasoning_parts) or None
+                db, cid, strip_emoji("".join(content_parts)), tool_calls, "".join(reasoning_parts) or None
             )
             messages.append(
                 {"role": "assistant", "content": "".join(content_parts) or None, "tool_calls": tool_calls}
@@ -376,6 +378,19 @@ def _record_usage(
         db.commit()
     except Exception:
         db.rollback()
+
+
+_EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FAFF\U0001F1E6-\U0001F1FF"
+    "\U00002600-\U000027BF\U00002B00-\U00002BFF"
+    "\U0000FE0F\U0000FE0E\U000020E3\U000000A9\U000000AE"
+    "\U00002122\U00003030\U0000303D]"
+)
+
+
+def strip_emoji(text: str) -> str:
+    """Remove emoji and decorative symbols so assistant replies stay plain text."""
+    return _EMOJI_RE.sub("", text)
 
 
 def _enforce_usage_limit(db: Session, user: User) -> None:
