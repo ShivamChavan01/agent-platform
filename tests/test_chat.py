@@ -148,6 +148,7 @@ def test_chat_llm_failure_returns_502_and_keeps_user_message(client, project_tok
     )
     client.app.dependency_overrides.pop(get_llm_client, None)
     assert resp.status_code == 502
+    assert "model" in resp.json()["error"].lower()
     assert "error" in resp.json()
 
     detail = client.get(

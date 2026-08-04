@@ -1,10 +1,13 @@
 import json
+import logging
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.config import settings
 from app.database import get_db
@@ -138,11 +141,12 @@ def chat(
     for _ in range(MAX_TOOL_TURNS):
         try:
             response = llm.complete(project.model, messages, tools=TOOLS)
-        except Exception:
+        except Exception as exc:
+            logger.exception("LLM call failed for model %s", project.model)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="The model service is unavailable, please try again later",
-            )
+                detail=f"The model service is unavailable for '{project.model}', please try another model",
+            ) from exc
 
         _record_usage(db, user, project, conversation, project.model, response)
         _enforce_usage_limit(db, user)
