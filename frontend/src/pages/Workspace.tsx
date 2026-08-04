@@ -39,7 +39,7 @@ export function Workspace() {
   const [artifactList, setArtifactList] = useState<CanvasArtifact[]>([]);
   const [artifactActive, setArtifactActive] = useState<string | undefined>(undefined);
   const [canvasOpen, setCanvasOpen] = useState(false);
-  const [attachment, setAttachment] = useState<{ file: File; name: string } | null>(null);
+  const [attachments, setAttachments] = useState<{ file: File; name: string }[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoOpenedRef = useRef(false);
@@ -155,6 +155,8 @@ export function Workspace() {
     setSending(true);
     setError(null);
     autoOpenedRef.current = false;
+    const currentAttachments = [...attachments];
+    setAttachments([]);
     // optimistic user message
     const optimistic: Message = {
       id: `local-${Date.now()}`,
@@ -165,18 +167,23 @@ export function Workspace() {
     setDetail((d) => (d ? { ...d, messages: [...d.messages, optimistic] } : d));
     setDraft({ thinking: "", content: "", tools: [], provider: "primary", model: "" });
     try {
-      if (attachment) {
-        await attachFile(attachment.file);
-      }
-      await streamChat(projectId, cid, text);
+      // Encode attachments as base64 for message-scoped context
+      const encoded = await Promise.all(
+        currentAttachments.map(async (a) => {
+          const buf = await a.file.arrayBuffer();
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+          return { filename: a.name, content_b64: b64 };
+        })
+      );
+      await streamChat(projectId, cid, text, encoded);
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
       if (!d.title) {
         await loadConversations();
       }
-      setAttachment(null);
     } catch (err) {
-      // Keep the pending attachment so the user can retry with the same file.
+      // Keep the pending attachments so the user can retry
+      setAttachments(currentAttachments);
       setError(err instanceof Error ? err.message : "Chat failed");
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
@@ -186,14 +193,14 @@ export function Workspace() {
     }
   };
 
-  const streamChat = async (pid: string, cid: string, text: string) => {
+  const streamChat = async (pid: string, cid: string, text: string, attachments?: { filename: string; content_b64: string }[]) => {
     const res = await fetch(`/projects/${pid}/conversations/${cid}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${getToken() ?? ""}`,
       },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ message: text, attachments: attachments?.length ? attachments : undefined }),
     });
     if (!res.ok) {
       let message = `Chat failed (${res.status})`;
@@ -255,15 +262,6 @@ export function Workspace() {
     }
   };
 
-  const attachFile = async (file: File) => {
-    if (!projectId) return;
-    const form = new FormData();
-    form.append("file", file);
-    await api.upload<ProjectFile>(`/projects/${projectId}/files`, form);
-    const fs = await api.get<ProjectFile[]>(`/projects/${projectId}/files`);
-    setFiles(fs);
-  };
-
   const lastMessages = detail?.messages ?? [];
 
   return (
@@ -274,14 +272,12 @@ export function Workspace() {
         activeId={activeId}
         userName={user?.name ?? ""}
         userEmail={user?.email ?? ""}
-        projectModel={project?.model ?? ""}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onNewChat={() => void newChat()}
         onSelect={selectConversation}
         onTogglePin={(c) => void togglePin(c)}
         onDelete={(c) => void deleteConversation(c)}
-        onModelChange={(m) => void changeModel(m)}
         onLogout={logoutNow}
       />
       <div className="main-area">
@@ -354,10 +350,15 @@ export function Workspace() {
 
             <Composer
               sending={sending}
-              attachment={attachment ? { name: attachment.name } : null}
-              onRemoveAttachment={() => setAttachment(null)}
+              projectModel={project?.model ?? ""}
+              attachments={attachments}
+              onRemoveAttachment={(i) => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
               onSend={(t) => void sendMessage(t)}
-              onAttach={(f) => setAttachment({ file: f, name: f.name })}
+              onAttach={(files) => {
+                const newAttachments = Array.from(files).map((f) => ({ file: f, name: f.name }));
+                setAttachments((prev) => [...prev, ...newAttachments]);
+              }}
+              onModelChange={(m) => void changeModel(m)}
             />
           </div>
 

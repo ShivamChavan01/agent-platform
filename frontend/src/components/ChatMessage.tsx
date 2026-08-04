@@ -18,6 +18,11 @@ export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
   }
 
   if (message.role === "tool") {
+    const content = message.content || "";
+    const lines = content.split("\n");
+    const preview = lines.slice(0, 3).join("\n");
+    const isLong = lines.length > 4 || content.length > 400;
+
     return (
       <div className="tool-card">
         <div className="tool-card-header">
@@ -29,7 +34,7 @@ export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
             </span>
           ) : null}
         </div>
-        <div className="tool-card-body">{message.content}</div>
+        <ToolCardBody content={content} preview={preview} isLong={isLong} />
       </div>
     );
   }
@@ -45,6 +50,25 @@ export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
         {message.reasoning && <ThinkingBlock text={message.reasoning} />}
         <MarkdownContent text={message.content} onOpenCanvas={onOpenCanvas} />
       </div>
+    </div>
+  );
+}
+
+function ToolCardBody({ content, preview, isLong }: { content: string; preview: string; isLong: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!isLong) {
+    return <div className="tool-card-body">{content}</div>;
+  }
+
+  return (
+    <div className="tool-card-body-wrap">
+      <div className={`tool-card-body ${expanded ? "expanded" : "collapsed"}`}>
+        {expanded ? content : preview}
+      </div>
+      <button className="tool-card-toggle" onClick={() => setExpanded((v) => !v)}>
+        {expanded ? "Show less ▴" : `Show full result (${content.length} chars) ▾`}
+      </button>
     </div>
   );
 }

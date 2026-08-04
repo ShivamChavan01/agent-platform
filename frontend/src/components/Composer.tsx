@@ -2,20 +2,31 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Paperclip, Send, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Paperclip, Send, X, Check, ChevronDown } from "lucide-react";
+import { MODEL_CATALOG } from "./Sidebar";
 
 interface ComposerProps {
   sending: boolean;
-  attachment: { name: string } | null;
-  onRemoveAttachment: () => void;
+  projectModel: string;
+  attachments: { file: File; name: string }[];
+  onRemoveAttachment: (index: number) => void;
   onSend: (text: string) => void;
-  onAttach: (file: File) => void;
+  onAttach: (files: FileList) => void;
+  onModelChange: (model: string) => void;
 }
 
-export function Composer({ sending, attachment, onRemoveAttachment, onSend, onAttach }: ComposerProps) {
+export function Composer({ sending, projectModel, attachments, onRemoveAttachment, onSend, onAttach, onModelChange }: ComposerProps) {
   const [text, setText] = useState("");
   const sendOnEnter = () => localStorage.getItem("aw_send_on_enter") !== "false";
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const modelLabel = MODEL_CATALOG.find((m) => m.id === projectModel)?.label ?? projectModel;
 
   const submit = () => {
     const value = text.trim();
@@ -34,21 +45,25 @@ export function Composer({ sending, attachment, onRemoveAttachment, onSend, onAt
   return (
     <div className="composer-wrap">
       <div className="input-area">
-        {attachment && (
-          <Badge variant="secondary" className="composer-attachment gap-1.5 pr-1.5">
-            <Paperclip className="h-3 w-3 shrink-0" />
-            <span className="composer-attachment-name">{attachment.name}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-4 w-4 p-0 hover:bg-transparent hover:text-accent-rose shrink-0"
-              title="Remove attachment"
-              aria-label="Remove attachment"
-              onClick={onRemoveAttachment}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </Badge>
+        {attachments.length > 0 && (
+          <div className="composer-attachments">
+            {attachments.map((a, i) => (
+              <Badge key={i} variant="secondary" className="composer-attachment gap-1.5 pr-1.5">
+                <Paperclip className="h-3 w-3 shrink-0" />
+                <span className="composer-attachment-name">{a.name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-4 w-4 p-0 hover:bg-transparent hover:text-accent-rose shrink-0"
+                  title="Remove attachment"
+                  aria-label="Remove attachment"
+                  onClick={() => onRemoveAttachment(i)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            ))}
+          </div>
         )}
         <div className="input-box">
           <Textarea
@@ -69,7 +84,7 @@ export function Composer({ sending, attachment, onRemoveAttachment, onSend, onAt
               variant="ghost"
               size="sm"
               className="composer-btn gap-1.5"
-              title="Attach a file"
+              title="Attach files"
               onClick={() => fileRef.current?.click()}
             >
               <Paperclip className="h-3.5 w-3.5" />
@@ -79,14 +94,40 @@ export function Composer({ sending, attachment, onRemoveAttachment, onSend, onAt
               ref={fileRef}
               type="file"
               hidden
+              multiple
               accept=".txt,.md,.markdown,.rst,.csv,.json,.log,.pdf,.docx,.py,.js,.ts,.tsx,.jsx,.html,.css,.xml,.yaml,.yml,.toml,.ini,.cfg,.sql,.sh,.go,.rs,.rb,.c,.h,.cpp,.hpp,.java,.kt,.swift"
-              title=".txt/.md/.csv/.json/code files, .pdf, .docx (max 10MB)"
+              title=".txt/.md/.csv/.json/code files, .pdf, .docx (max 10MB each)"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onAttach(f);
+                if (e.target.files?.length) onAttach(e.target.files);
                 e.target.value = "";
               }}
             />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="model-pill gap-1"
+                  title="Select model"
+                >
+                  <span className="model-dot" />
+                  <span className="model-pill-label">{modelLabel}</span>
+                  <ChevronDown className="h-3 w-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="end" className="w-56 max-h-[50vh] overflow-y-auto">
+                {MODEL_CATALOG.map((m) => (
+                  <DropdownMenuItem
+                    key={m.id}
+                    onClick={() => onModelChange(m.id)}
+                    className="gap-2"
+                  >
+                    {m.id === projectModel && <Check className="h-4 w-4 shrink-0" />}
+                    <span className={m.id === projectModel ? "" : "pl-4"}>{m.label}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="default"
               size="sm"

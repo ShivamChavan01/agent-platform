@@ -19,8 +19,6 @@ import {
   Settings,
   FolderOpen,
   LogOut,
-  Check,
-  ChevronDown,
 } from "lucide-react";
 
 export const MODEL_CATALOG: ModelOption[] = [
@@ -56,14 +54,12 @@ interface SidebarProps {
   activeId: string | null;
   userName: string;
   userEmail: string;
-  projectModel: string;
   open: boolean;
   onClose: () => void;
   onNewChat: () => void;
   onSelect: (id: string) => void;
   onTogglePin: (c: Conversation) => void;
   onDelete: (c: Conversation) => void;
-  onModelChange: (model: string) => void;
   onLogout: () => void;
 }
 
@@ -72,19 +68,16 @@ export function Sidebar({
   activeId,
   userName,
   userEmail,
-  projectModel,
   open,
   onClose,
   onNewChat,
   onSelect,
   onTogglePin,
   onDelete,
-  onModelChange,
   onLogout,
 }: SidebarProps) {
   const navigate = useNavigate();
   const groups = groupByDay(conversations);
-  const modelLabel = MODEL_CATALOG.find((m) => m.id === projectModel)?.label ?? projectModel;
 
   return (
     <>
@@ -146,28 +139,6 @@ export function Sidebar({
         </nav>
 
         <div className="sidebar-footer">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="model-selector w-full justify-start gap-2 h-auto py-2 px-3">
-                <span className="model-dot" />
-                <span className="flex-1 truncate text-left">{modelLabel}</span>
-                <ChevronDown className="h-3.5 w-3.5 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-56 max-h-[50vh] overflow-y-auto">
-              {MODEL_CATALOG.map((m) => (
-                <DropdownMenuItem
-                  key={m.id}
-                  onClick={() => onModelChange(m.id)}
-                  className="gap-2"
-                >
-                  {m.id === projectModel && <Check className="h-4 w-4 shrink-0" />}
-                  <span className={m.id === projectModel ? "" : "pl-4"}>{m.label}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="user-profile w-full justify-start gap-2 h-auto py-2 px-3">

@@ -6,7 +6,7 @@ interface ThinkingBlockProps {
 }
 
 export function ThinkingBlock({ text }: ThinkingBlockProps) {
-  const [showThinking, setShowThinking] = useState(true);
+  const [showThinking, setShowThinking] = useState(false);
 
   return (
     <div className="thinking-block">

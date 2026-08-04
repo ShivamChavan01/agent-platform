@@ -136,8 +136,14 @@ class ConversationDetailOut(ConversationOut):
     messages: list[MessageOut]
 
 
+class AttachmentIn(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    content_b64: str = Field(min_length=1)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=10000)
+    attachments: list[AttachmentIn] | None = None
 
 
 # ---------- Files ----------

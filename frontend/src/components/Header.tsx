@@ -26,7 +26,7 @@ export function Header({ title, breadcrumb, userName, userEmail, onToggleSidebar
 
   return (
     <header className="header">
-      <Button variant="ghost" size="icon" onClick={onToggleSidebar} title="Toggle sidebar">
+      <Button type="button" variant="ghost" size="icon" onClick={onToggleSidebar} title="Toggle sidebar">
         <PanelLeft className="h-4 w-4" />
       </Button>
       <span className="header-title">{title}</span>

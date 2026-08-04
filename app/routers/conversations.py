@@ -170,7 +170,23 @@ def chat(
         "a live preview, so keep each file self-contained."
     )
     system = (project.system_prompt or "") + identity_hint + artifact_guidance
-    messages = build_chat_messages(system, history, payload.message)
+
+    # Inject message-scoped attachments as context (not stored, not embedded)
+    user_content = payload.message
+    if payload.attachments:
+        import base64
+        parts = []
+        for att in payload.attachments:
+            try:
+                raw = base64.b64decode(att.content_b64)
+                text = raw.decode("utf-8", errors="replace")
+            except Exception:
+                text = "(binary file — cannot decode)"
+            parts.append(f"--- File: {att.filename} ---\n{text}\n--- End: {att.filename} ---")
+        file_context = "\n\n".join(parts)
+        user_content = f"{file_context}\n\n{user_content}"
+
+    messages = build_chat_messages(system, history, user_content)
 
     def sse(payload: dict) -> str:
         return f"data: {json.dumps(payload)}\n\n"

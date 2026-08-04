@@ -215,7 +215,6 @@ select {
   gap: 4px;
 }
 
-.model-selector,
 .user-profile {
   display: flex;
   align-items: center;
@@ -228,18 +227,9 @@ select {
   text-align: left;
 }
 
-.model-selector:hover,
 .user-profile:hover {
   background: var(--bg-hover);
   color: var(--fg);
-}
-
-.model-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent-emerald);
-  flex-shrink: 0;
 }
 
 .avatar {
@@ -764,6 +754,37 @@ select {
   word-break: break-word;
 }
 
+.tool-card-body.collapsed {
+  max-height: 72px;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+.tool-card-body.expanded {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tool-card-body-wrap {
+  border-top: 1px solid var(--border);
+}
+
+.tool-card-toggle {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--accent);
+  text-align: center;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.tool-card-toggle:hover {
+  background: var(--bg-hover);
+}
+
 /* ---------- Composer ---------- */
 
 .composer-wrap {
@@ -895,6 +916,46 @@ html[data-theme="light"] .input-box {
 .send-btn:not(:disabled):hover {
   background: #4d9df5;
   color: #fff;
+}
+
+/* Model selector pill (inside composer) */
+.model-pill {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  border-radius: 14px;
+  color: var(--fg-muted);
+  gap: 4px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.model-pill:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.model-pill-label {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-emerald);
+  flex-shrink: 0;
+}
+
+/* Multi-file attachment chips */
+.composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0 2px;
 }
 
 /* ---------- Auth ---------- */
