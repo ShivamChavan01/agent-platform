@@ -58,6 +58,13 @@ def login(payload: UserLogin, db: Session = Depends(get_db)) -> TokenOut:
     return TokenOut(access_token=token, user=UserOut.model_validate(user))
 
 
+@router.get("/me", response_model=UserOut)
+def get_me(
+    user: User = Depends(get_current_user),
+) -> User:
+    return user
+
+
 @router.patch("/me", response_model=UserOut)
 def update_me(
     payload: UserUpdate,

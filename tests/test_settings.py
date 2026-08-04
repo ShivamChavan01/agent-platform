@@ -44,6 +44,18 @@ def use_llm(client, llm):
 # ---------- Profile ----------
 
 
+def test_get_me_returns_profile(client):
+    token = register(client, name="Alice").json()["access_token"]
+    resp = client.get("/auth/me", headers=auth_headers(token))
+    assert resp.status_code == 200
+    assert resp.json()["email"] == "user@example.com"
+    assert resp.json()["name"] == "Alice"
+
+
+def test_get_me_requires_auth(client):
+    assert client.get("/auth/me").status_code == 401
+
+
 def test_patch_me_updates_name(client):
     token = register(client).json()["access_token"]
     resp = client.patch("/auth/me", headers=auth_headers(token), json={"name": "Shivam"})
