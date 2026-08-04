@@ -1,9 +1,14 @@
 import json
+import os
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+# Never load the real embedding model during tests — must be set before
+# `from app.main import app` triggers Settings() (lru-cached).
+os.environ.setdefault("PRELOAD_EMBEDDER", "false")
 
 from app.database import Base, get_db
 from app.embeddings import get_embedder

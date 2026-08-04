@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     embed_model: str = "nomic-ai/nomic-embed-text-v1.5"
     embed_dim: int = 768
 
+    # Load the embedding model during FastAPI lifespan startup instead of
+    # lazily on first request (first load ~2.5 min — makes the first real
+    # request of a fresh container look broken). Tests set this to false.
+    preload_embedder: bool = True
+
     supabase_url: str = ""
     supabase_service_role_key: str = ""
     supabase_storage_bucket: str = "project-files"
