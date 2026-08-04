@@ -126,6 +126,7 @@ export function Workspace() {
       navigate(`/app/projects/${projectId}/conversations/${c.id}`, { replace: true });
     }
     setSending(true);
+    setError(null);
     // optimistic user message
     const optimistic: Message = {
       id: `local-${Date.now()}`,
