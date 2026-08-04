@@ -5,31 +5,31 @@ import { groupByDay } from "../lib/time";
 import { Icon } from "./Icon";
 
 export const MODEL_CATALOG: ModelOption[] = [
-  {
-    id: "deepseek/deepseek-v4-flash",
-    label: "DeepSeek V4 Flash",
-    description: "Fastest inference, best for code generation and analysis",
-  },
-  {
-    id: "deepseek/deepseek-r1",
-    label: "DeepSeek R1",
-    description: "Strong reasoning for complex architecture decisions",
-  },
-  {
-    id: "anthropic/claude-3.5-sonnet",
-    label: "Claude 3.5 Sonnet",
-    description: "Best reasoning, ideal for complex architecture decisions",
-  },
-  {
-    id: "openai/gpt-4o",
-    label: "GPT-4o",
-    description: "Versatile model with strong multimodal capabilities",
-  },
-  {
-    id: "google/gemini-2.0-pro",
-    label: "Gemini 2.0 Pro",
-    description: "Strong at long context and structured data tasks",
-  },
+  { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash", description: "Fastest inference, best for code generation and analysis" },
+  { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", description: "Stronger reasoning for complex architecture decisions" },
+  { id: "minimax-m3", label: "MiniMax M3", description: "Latest MiniMax flagship model" },
+  { id: "minimax-m2.7", label: "MiniMax M2.7", description: "Fast and capable MiniMax model" },
+  { id: "minimax-m2.5", label: "MiniMax M2.5", description: "Balanced MiniMax model" },
+  { id: "kimi-k3", label: "Kimi K3", description: "Latest Kimi flagship model" },
+  { id: "kimi-k2.7-code", label: "Kimi K2.7 Code", description: "Code-focused Kimi model" },
+  { id: "kimi-k2.6", label: "Kimi K2.6", description: "Strong general reasoning" },
+  { id: "kimi-k2.5", label: "Kimi K2.5", description: "Balanced Kimi model" },
+  { id: "glm-5.2", label: "GLM 5.2", description: "Latest GLM flagship model" },
+  { id: "glm-5.1", label: "GLM 5.1", description: "Latest GLM model" },
+  { id: "glm-5", label: "GLM 5", description: "Strong GLM reasoning model" },
+  { id: "qwen3.8-max", label: "Qwen 3.8 Max", description: "Largest Qwen 3.8 model" },
+  { id: "qwen3.7-max", label: "Qwen 3.7 Max", description: "Qwen 3.7 flagship" },
+  { id: "qwen3.7-plus", label: "Qwen 3.7 Plus", description: "Strong Qwen 3.7 model" },
+  { id: "qwen3.6-plus", label: "Qwen 3.6 Plus", description: "Balanced Qwen model" },
+  { id: "qwen3.5-plus", label: "Qwen 3.5 Plus", description: "Efficient Qwen model" },
+  { id: "mimo-v2-pro", label: "Mimo V2 Pro", description: "Mimo V2 professional tier" },
+  { id: "mimo-v2-omni", label: "Mimo V2 Omni", description: "Multimodal Mimo model" },
+  { id: "mimo-v2.5-pro", label: "Mimo V2.5 Pro", description: "Latest Mimo pro model" },
+  { id: "mimo-v2.5", label: "Mimo V2.5", description: "Latest Mimo model" },
+  { id: "hy3", label: "HY3", description: "Hyperbolic 3 model" },
+  { id: "hy3-preview", label: "HY3 Preview", description: "Hyperbolic 3 preview" },
+  { id: "gpt-5.6-luna", label: "GPT-5.6 Luna", description: "OpenAI-class model via opencode" },
+  { id: "grok-4.5", label: "Grok 4.5", description: "xAI flagship model" },
 ];
 
 interface SidebarProps {
@@ -152,7 +152,7 @@ export function Sidebar({
           </button>
 
           {modelMenuOpen && (
-            <div className="profile-dropdown" style={{ bottom: 110 }}>
+            <div className="profile-dropdown" style={{ bottom: 110, maxHeight: "50vh", overflowY: "auto" }}>
               {MODEL_CATALOG.map((m) => (
                 <button
                   key={m.id}

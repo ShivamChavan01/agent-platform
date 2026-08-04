@@ -29,8 +29,21 @@ createdb agent_platform
 
 # 3. Configure secrets
 cp .env.example .env
-# edit .env: OPENAI_API_KEY=sk-or-v1-...   (OpenRouter key)
+# edit .env: OPENAI_API_KEY=<provider key>
 #            JWT_SECRET=<random string>
+#
+# LLM provider is env-swappable. The chat endpoint talks to any OpenAI-
+# compatible `chat.completions` server:
+#   - opencode-go (many models, single key): 
+#       OPENAI_BASE_URL=https://opencode.ai/zen/go/v1
+#       OPENAI_API_KEY=sk-h5J...   (see ~/.local/share/opencode/auth.json)
+#       DEFAULT_MODEL=deepseek-v4-flash
+#       # full catalog: GET {BASE}/models  (minimax-*, kimi-*, glm-*, qwen-*,
+#       #                                  deepseek-v4-flash/pro, gpt-5.6-luna, ...)
+#   - OpenRouter (original default):
+#       OPENAI_BASE_URL=https://openrouter.ai/api/v1
+#       OPENAI_API_KEY=sk-or-v1-...
+#       DEFAULT_MODEL=deepseek/deepseek-v4-flash
 
 # 4. Create tables
 python -m scripts.init_db
@@ -57,8 +70,8 @@ API docs: http://127.0.0.1:8000/docs
 | `JWT_SECRET` | `change-me-in-prod` | HMAC secret for JWT signing — set a random value |
 | `JWT_ALGORITHM` | `HS256` | JWT algorithm |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Token lifetime |
-| `OPENAI_API_KEY` | (empty) | OpenRouter API key (`sk-or-v1-...`) |
-| `OPENAI_BASE_URL` | `https://openrouter.ai/api/v1` | LLM endpoint |
+| `OPENAI_API_KEY` | (empty) | Provider API key (OpenRouter `sk-or-v1-...` or opencode-go `sk-h5J...`) |
+| `OPENAI_BASE_URL` | `https://openrouter.ai/api/v1` | LLM endpoint (OpenAI-compatible) |
 | `DEFAULT_MODEL` | `deepseek/deepseek-v4-flash` | Model when a project sets none |
 
 For Supabase: set `DATABASE_URL` to your Supabase pooler URL — no code changes.

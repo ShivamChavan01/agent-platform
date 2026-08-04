@@ -1,10 +1,12 @@
 from conftest import auth_headers, register
 
+from app.config import settings
+
 PROJECT = {
     "name": "Support Bot",
     "description": "answers FAQs",
     "system_prompt": "You are a helpful support agent.",
-    "model": "deepseek/deepseek-v4-flash",
+    "model": settings.default_model,
 }
 
 
@@ -31,7 +33,7 @@ def test_create_project_defaults_model(client):
     token = register(client).json()["access_token"]
     resp = create_project(client, token, model=None)
     assert resp.status_code == 201
-    assert resp.json()["model"] == "deepseek/deepseek-v4-flash"
+    assert resp.json()["model"] == settings.default_model
 
 
 def test_list_projects_only_shows_own(client):
