@@ -56,6 +56,8 @@ export function Composer({ sending, onSend, onAttach }: ComposerProps) {
               ref={fileRef}
               type="file"
               hidden
+              accept=".txt,.pdf"
+              title="Only .txt and .pdf are supported (max 10MB)"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) onAttach(f);

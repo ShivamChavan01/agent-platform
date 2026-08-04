@@ -137,7 +137,16 @@ def chat(
 
     # Tool loop: call the model, run any requested tools, feed results back,
     # and repeat until it replies with plain text or we hit MAX_TOOL_TURNS.
-    messages = build_chat_messages(project.system_prompt or "", history, payload.message)
+    # Identity grounding: models hallucinate their own vendor/version when the
+    # system prompt doesn't state it, so append the configured model id.
+    identity_hint = (
+        f"\n\nPlatform note: you are served as the model '{project.model}' through "
+        "this platform's configured LLM provider. If asked which model or vendor "
+        "you are, answer truthfully with your configured model id; if you are "
+        "unsure of your exact version, say so instead of guessing."
+    )
+    system = (project.system_prompt or "") + identity_hint
+    messages = build_chat_messages(system, history, payload.message)
     for _ in range(MAX_TOOL_TURNS):
         try:
             response = llm.complete(project.model, messages, tools=TOOLS)

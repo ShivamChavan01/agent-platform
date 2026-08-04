@@ -103,7 +103,9 @@ def test_chat_sends_system_prompt_model_and_history(client, project_token, use_f
 
     model, messages = use_fake_llm.calls[-1]
     assert model == "deepseek/deepseek-v4-flash"
-    assert messages[0] == {"role": "system", "content": SYSTEM_PROMPT}
+    assert messages[0]["role"] == "system"
+    assert messages[0]["content"].startswith(SYSTEM_PROMPT)
+    assert "deepseek/deepseek-v4-flash" in messages[0]["content"]
     assert messages[1:] == [
         {"role": "user", "content": "first question"},
         {"role": "assistant", "content": "fake assistant reply"},

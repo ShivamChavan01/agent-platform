@@ -184,11 +184,6 @@ export function Workspace() {
                 </div>
                 <h3>{project?.name}</h3>
                 <p>{project?.description || "Start a conversation with this agent."}</p>
-                {files.length > 0 && (
-                  <p style={{ marginTop: 12, fontSize: 12, color: "var(--fg-dim)" }}>
-                    {files.length} file{files.length === 1 ? "" : "s"} indexed for retrieval
-                  </p>
-                )}
               </div>
             )}
             {lastMessages.map((m) => (
@@ -209,6 +204,22 @@ export function Workspace() {
             )}
           </div>
         </div>
+
+        {files.length > 0 && (
+          <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 24px 10px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {files.map((f) => (
+                <span key={f.id} className="file-chip" style={{ cursor: "default" }}>
+                  <Icon name="paperclip" size={12} />
+                  {f.original_filename}
+                  <span style={{ color: "var(--fg-dim)" }}>
+                    {f.chunk_count > 0 ? `· ${f.chunk_count} chunks indexed` : "· indexing…"}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Composer sending={sending} onSend={(t) => void sendMessage(t)} onAttach={(f) => void attachFile(f)} />
       </div>
