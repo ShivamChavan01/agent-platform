@@ -101,6 +101,11 @@ export function isSubstantialArtifact(b: FencedBlock): boolean {
   return previewable || hasName || b.code.trim().split("\n").length > 6;
 }
 
+/** Languages that can be rendered live in a sandboxed iframe preview. */
+export function isPreviewable(lang: string): boolean {
+  return lang === "html" || lang === "svg" || lang === "xml";
+}
+
 export function toCanvasArtifact(b: FencedBlock): CanvasArtifact {
   return { code: b.code, lang: b.lang, path: b.name };
 }

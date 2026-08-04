@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "./Icon";
+import { isPreviewable as isPreviewableLang } from "../lib/artifacts";
 
 export interface CanvasArtifact {
   code: string;
@@ -13,8 +14,6 @@ interface CanvasPaneProps {
   onClose: () => void;
 }
 
-const PREVIEWABLE = new Set(["html", "svg", "xml"]);
-
 export function CanvasPane({ artifacts, activeName, onClose }: CanvasPaneProps) {
   const [tab, setTab] = useState<"code" | "preview">("code");
   const [copied, setCopied] = useState(false);
@@ -26,7 +25,7 @@ export function CanvasPane({ artifacts, activeName, onClose }: CanvasPaneProps) 
     list.find((a) => (a.path ?? a.lang) === activeName) ??
     list[0];
   const artifact = activeArtifact;
-  const previewable = artifact ? PREVIEWABLE.has(artifact.lang.toLowerCase()) : false;
+  const previewable = artifact ? isPreviewableLang(artifact.lang) : false;
 
   if (!artifact) return null;
 

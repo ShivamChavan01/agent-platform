@@ -6,7 +6,7 @@ import type { CanvasArtifact } from "./CanvasPane";
 import { timeAgo } from "../lib/time";
 import { Icon } from "./Icon";
 import { ThinkingBlock } from "./ThinkingBlock";
-import { deriveFileName, isSubstantialArtifact, toCanvasArtifact, type FencedBlock } from "../lib/artifacts";
+import { deriveFileName, isPreviewable, isSubstantialArtifact, toCanvasArtifact, type FencedBlock } from "../lib/artifacts";
 
 interface ChatMessageProps {
   message: Message;
@@ -92,6 +92,9 @@ export function MarkdownContent({ text, onOpenCanvas }: { text: string; onOpenCa
             if (isBlock) {
               const block: FencedBlock = { lang: lang ?? "text", code, name: deriveFileName(lang ?? "text", code) };
               if (onOpenCanvas && isSubstantialArtifact(block)) {
+                if (isPreviewable(block.lang)) {
+                  return <InlinePreview block={block} onExpand={() => onOpenCanvas(toCanvasArtifact(block))} />;
+                }
                 return <ArtifactCard block={block} onOpen={() => onOpenCanvas(toCanvasArtifact(block))} />;
               }
               return <CodeBlock lang={lang ?? "text"} code={code} onOpenCanvas={onOpenCanvas} />;
@@ -134,6 +137,34 @@ export function ArtifactCard({ block, onOpen }: { block: FencedBlock; onOpen: ()
       </span>
       <span className="code-lang">{block.lang}</span>
     </button>
+  );
+}
+
+export function InlinePreview({ block, onExpand }: { block: FencedBlock; onExpand: () => void }) {
+  return (
+    <div className="inline-preview">
+      <div className="inline-preview-header">
+        <Icon name={artifactIcon(block.lang)} size={13} />
+        <span className="inline-preview-name">{block.name}</span>
+        <span className="code-lang">{block.lang}</span>
+        <div style={{ flex: 1 }} />
+        <button
+          type="button"
+          className="code-header-btn"
+          onClick={onExpand}
+          title="Open in Canvas for full-size viewing and code inspection"
+        >
+          <Icon name="sidebar" size={12} />
+          Expand
+        </button>
+      </div>
+      <iframe
+        title={`Live preview: ${block.name}`}
+        sandbox="allow-scripts"
+        srcDoc={block.code}
+        loading="lazy"
+      />
+    </div>
   );
 }
 
