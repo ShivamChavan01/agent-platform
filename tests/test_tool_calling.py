@@ -1,0 +1,291 @@
+import json
+
+import pytest
+
+from app.llm import get_llm_client
+from app.models import Message
+from app.tools import TOOLS, evaluate_expression, execute_tool
+from conftest import auth_headers, register
+
+
+# ---------- Evaluator (pure logic) ----------
+
+
+def test_calculator_basic_arithmetic():
+    assert evaluate_expression("2 + 3 * 4") == "14"
+    assert evaluate_expression("(3 + 5) * 2") == "16"
+    assert evaluate_expression("10 / 4") == "2.5"
+
+
+def test_calculator_unary_and_floats():
+    assert evaluate_expression("-7") == "-7"
+    assert evaluate_expression("2 ** 3") == "8"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "__import__('os')",
+        "eval('1')",
+        "1:0",
+        "import os",
+        "sys.exit()",
+        "2 ** 1000000000",
+        "0 / 0",
+    ],
+)
+def test_calculator_rejects_unsafe_or_invalid(bad):
+    result = execute_tool("calculator", {"expression": bad}, db=None, project_id=None, embedder=None)
+    assert result.startswith("Error")
+
+
+def test_unknown_tool_name_raises():
+    with pytest.raises(ValueError):
+        execute_tool("not_a_tool", {}, db=None, project_id=None, embedder=None)
+
+
+def test_tool_definitions_are_consistent():
+    names = {t["function"]["name"] for t in TOOLS}
+    assert names == {"calculator", "search_project_files"}
+
+
+# ---------- Chat tool loop (HTTP, scripted FakeLLM) ----------
+
+
+class ToolCall:
+    def __init__(self, call_id, name, arguments):
+        self.id = call_id
+        self.function = FunctionCall(name, arguments)
+
+
+class FunctionCall:
+    def __init__(self, name, arguments):
+        self.name = name
+        self.arguments = arguments
+
+
+class Msg:
+    def __init__(self, content=None, tool_calls=None):
+        self.content = content
+        self.tool_calls = tool_calls
+
+
+class ScriptedLLM:
+    def __init__(self, script):
+        self.script = list(script)
+        self.calls = []
+        self.index = 0
+
+    def complete(self, model, messages, tools=None):
+        self.calls.append((model, [dict(m) for m in messages], tools))
+        out = self.script[min(self.index, len(self.script) - 1)]
+        self.index += 1
+        return out
+
+
+@pytest.fixture
+def project_token(client):
+    token = register(client).json()["access_token"]
+    resp = client.post(
+        "/projects",
+        headers=auth_headers(token),
+        json={"name": "Bot", "system_prompt": "You are helpful.", "model": "test/llm"},
+    )
+    return token, resp.json()["id"]
+
+
+@pytest.fixture
+def conv(client, project_token):
+    token, pid = project_token
+    resp = client.post(
+        f"/projects/{pid}/conversations",
+        headers=auth_headers(token),
+        json={"title": "c"},
+    )
+    return token, pid, resp.json()["id"]
+
+
+def overrides(client, llm):
+    client.app.dependency_overrides[get_llm_client] = lambda: llm
+    return llm
+
+
+def test_chat_with_calculator_tool_persists_tool_messages(client, conv):
+    token, pid, cid = conv
+    llm = ScriptedLLM(
+        [
+            Msg(tool_calls=[ToolCall("call_1", "calculator", '{"expression": "17 * 23 + 4"}')]),
+            Msg(content="The result of 17 * 23 + 4 is **395**."),
+        ]
+    )
+    overrides(client, llm)
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat",
+        headers=auth_headers(token),
+        json={"message": "What is 17 * 23 + 4?"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["content"] == "The result of 17 * 23 + 4 is **395**."
+
+    detail = client.get(
+        f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
+    ).json()
+    roles = [m["role"] for m in detail["messages"]]
+    assert roles == ["user", "assistant", "tool", "assistant"]
+
+    tool_msg = detail["messages"][2]
+    assert tool_msg["role"] == "tool"
+    assert tool_msg["content"] == "395"
+    assert tool_msg["tool_name"] == "calculator"
+
+    assistant_call = detail["messages"][1]
+    assert assistant_call["content"] == ""
+    calls = json.loads(assistant_call["tool_arguments"])
+    assert calls[0]["function"]["name"] == "calculator"
+    assert json.loads(calls[0]["function"]["arguments"]) == {"expression": "17 * 23 + 4"}
+
+
+def test_tool_result_is_fed_back_with_matching_call_id(client, conv):
+    token, pid, cid = conv
+    llm = ScriptedLLM(
+        [
+            Msg(tool_calls=[ToolCall("call_xyz", "calculator", '{"expression": "2+2"}')]),
+            Msg(content="4"),
+        ]
+    )
+    overrides(client, llm)
+
+    client.post(
+        f"/projects/{pid}/conversations/{cid}/chat",
+        headers=auth_headers(token),
+        json={"message": "hi"},
+    )
+
+    model, messages, tools = llm.calls[1]
+    tool_messages = [m for m in messages if m.get("role") == "tool"]
+    assert len(tool_messages) == 1
+    assert tool_messages[0]["tool_call_id"] == "call_xyz"
+    assert tool_messages[0]["content"] == "4"
+
+
+def test_chat_history_replays_tool_round_in_next_turn(client, conv):
+    token, pid, cid = conv
+    llm = ScriptedLLM(
+        [
+            Msg(tool_calls=[ToolCall("call_1", "calculator", '{"expression": "1+1"}')]),
+            Msg(content="2"),
+            Msg(content="final"),
+        ]
+    )
+    overrides(client, llm)
+
+    client.post(
+        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "a"}
+    )
+    client.post(
+        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "b"}
+    )
+
+    messages = llm.calls[2][1]
+    asst = [m for m in messages if m.get("role") == "assistant" and "tool_calls" in m]
+    tool = [m for m in messages if m.get("role") == "tool"]
+    assert len(asst) == 1
+    assert asst[0]["tool_calls"][0]["id"] == "call_1"
+    assert asst[0]["tool_calls"][0]["function"]["name"] == "calculator"
+    assert len(tool) == 1
+    assert tool[0]["tool_call_id"] == "call_1"
+    assert tool[0]["content"] == "2"
+
+
+def test_chat_with_search_project_files_tool(client, conv):
+    token, pid, cid = conv
+    payload = "The company plan covers the renegotiation of the Mumbai office lease." * 300
+    up = client.post(
+        f"/projects/{pid}/files",
+        headers=auth_headers(token),
+        files={"file": ("plan.txt", payload.encode(), "text/plain")},
+    )
+    assert up.status_code == 201
+
+    llm = ScriptedLLM(
+        [
+            Msg(tool_calls=[ToolCall("call_s", "search_project_files", '{"query": "what offices are covered?"}')]),
+            Msg(content="based on files."),
+        ]
+    )
+    overrides(client, llm)
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "hi"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["content"] == "based on files."
+
+    detail = client.get(
+        f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
+    ).json()
+    tool_msg = detail["messages"][2]
+    assert tool_msg["role"] == "tool"
+    assert tool_msg["tool_name"] == "search_project_files"
+    assert "Mumbai" in tool_msg["content"]
+
+
+def test_chat_loop_stops_after_max_tool_turns(client, conv):
+    token, pid, cid = conv
+    llm = ScriptedLLM(
+        [Msg(tool_calls=[ToolCall("call_x", "calculator", '{"expression": "1"}')])]
+    )
+    overrides(client, llm)
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "hi"}
+    )
+    assert resp.status_code == 502
+    assert "error" in resp.json()
+
+
+def test_reasoning_content_is_never_persisted(client, db_session, conv):
+    token, pid, cid = conv
+    llm = ScriptedLLM(
+        [
+            Msg(
+                tool_calls=[ToolCall("call_r", "calculator", '{"expression": "1+1"}')],
+            ),
+            Msg(content="2"),
+        ]
+    )
+    overrides(client, llm)
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "hi"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["content"] == "2"
+
+    for row in db_session.query(Message).all():
+        assert "SECRET" not in (row.content or "")
+        assert "REASONING" not in (row.content or "")
+
+
+def test_tool_call_arguments_not_persisted_in_history(client, db_session, conv):
+    token, pid, cid = conv
+    llm = ScriptedLLM(
+        [Msg(content="plain answer")]
+    )
+    overrides(client, llm)
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat", headers=auth_headers(token), json={"message": "hi"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["content"] == "plain answer"
+
+    detail = client.get(
+        f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
+    ).json()
+    # No tool involved: exactly two plain messages, no tool remnants.
+    assert [(m["role"], m["content"]) for m in detail["messages"]] == [
+        ("user", "hi"),
+        ("assistant", "plain answer"),
+    ]

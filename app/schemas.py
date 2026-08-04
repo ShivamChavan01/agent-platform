@@ -81,6 +81,10 @@ class MessageOut(BaseModel):
     role: str
     content: str
     created_at: datetime
+    # Populated only for tool exchanges (Step 6, Part B)
+    tool_call_id: str | None = None
+    tool_name: str | None = None
+    tool_arguments: str | None = None
 
 
 class ConversationOut(BaseModel):

@@ -1,4 +1,5 @@
 import pytest
+from types import SimpleNamespace
 
 from app.llm import get_llm_client
 from conftest import auth_headers, register
@@ -11,13 +12,13 @@ class FakeLLM:
         self.reply = reply
         self.calls = []
 
-    def complete(self, model, messages):
+    def complete(self, model, messages, tools=None):
         self.calls.append((model, list(messages)))
-        return self.reply
+        return SimpleNamespace(content=self.reply, tool_calls=None)
 
 
 class FailingLLM:
-    def complete(self, model, messages):
+    def complete(self, model, messages, tools=None):
         raise RuntimeError("llm down")
 
 
