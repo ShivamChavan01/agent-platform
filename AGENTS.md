@@ -52,3 +52,21 @@ their agent via an LLM API.
   mapping consistent, don't introduce a separate "agent" concept
 - Every error returns a proper HTTP status code + JSON `{"error": "..."}`,
   never an unhandled stack trace
+
+## Build & deploy — Step 7 checklist (decisions made, NOT yet executed)
+- Dependencies must be installed ONLY from `requirements.txt`; any new
+  import in `app/` must be recorded there in the same change. No ad hoc
+  `pip install` into a local venv without updating the manifest (the
+  project `.venv` already diverged this way once and could not boot).
+- Dockerfile must install CPU-only torch FIRST from the PyPI CPU index
+  (`pip install torch --index-url https://download.pytorch.org/whl/cpu`)
+  before `pip install -r requirements.txt`. The default CUDA wheel is
+  multi-GB and useless on Railway (no GPU) — smaller image, faster build.
+- Embedding model must be downloaded at BUILD time into the HF cache
+  (`snapshot_download("nomic-ai/nomic-embed-text-v1.5")`) so the runtime
+  never makes network calls (embeddings must work offline in the demo).
+- Embedding model must be PRELOADED at app startup (FastAPI lifespan), not
+  lazily on first request — first-load costs ~2.5 min and would make the
+  first real request of a fresh container look broken.
+- Post-deploy smoke: cold-start a container, confirm upload+chat latency is
+  normal on the very first request.
