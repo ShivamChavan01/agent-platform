@@ -94,16 +94,16 @@ def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def chat_events(client, token, pid, cid, message, expected_status=200):
+def chat_events(client, token, pid, cid, message, expected_status=200, **extra):
     """POST a chat message and parse the SSE stream into event payloads.
 
     Returns (resp, events) where events is a list of dicts — each `data:`
-    line in the stream, in order.
+    line in the stream, in order. Extra kwargs are merged into the body.
     """
     resp = client.post(
         f"/projects/{pid}/conversations/{cid}/chat",
         headers=auth_headers(token),
-        json={"message": message},
+        json={"message": message, **extra},
     )
     assert resp.status_code == expected_status
     events = []

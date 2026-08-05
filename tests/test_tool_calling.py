@@ -197,7 +197,7 @@ class ScriptedLLM:
         self.calls = []
         self.index = 0
 
-    def stream(self, model, messages, tools=None):
+    def stream(self, model, messages, tools=None, reasoning_effort=None):
         self.calls.append((model, [dict(m) for m in messages], tools))
         out = self.script[min(self.index, len(self.script) - 1)]
         self.index += 1

@@ -31,7 +31,7 @@ class UsageLLM:
         self.usage = usage
         self.calls = []
 
-    def stream(self, model, messages, tools=None):
+    def stream(self, model, messages, tools=None, reasoning_effort=None):
         self.calls.append((model, list(messages), tools))
         if self.content:
             yield {"type": "content", "text": self.content}

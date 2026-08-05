@@ -13,9 +13,11 @@ class FakeLLM:
         self.reply = reply
         self.thinking = thinking
         self.calls = []
+        self.efforts = []
 
-    def stream(self, model, messages, tools=None):
+    def stream(self, model, messages, tools=None, reasoning_effort=None):
         self.calls.append((model, list(messages)))
+        self.efforts.append(reasoning_effort)
         if self.thinking:
             yield {"type": "thinking", "text": self.thinking}
         if self.reply:
@@ -176,6 +178,30 @@ def test_chat_sends_system_prompt_model_and_history(client, project_token, use_f
         {"role": "assistant", "content": "fake assistant reply"},
         {"role": "user", "content": "second question"},
     ]
+
+
+def test_chat_forwards_reasoning_effort_max(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    chat_events(client, token, pid, cid, "hi", reasoning_effort="max")
+    assert use_fake_llm.efforts[-1] == "max"
+
+
+def test_chat_defaults_reasoning_effort_to_standard(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    chat_events(client, token, pid, cid, "hi")
+    assert use_fake_llm.efforts[-1] == "standard"
+
+
+def test_chat_rejects_invalid_reasoning_effort(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    chat_events(client, token, pid, cid, "hi", reasoning_effort="ultra", expected_status=422)
+    assert use_fake_llm.efforts == []
 
 
 def test_chat_requires_auth(client, project_token):

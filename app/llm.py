@@ -58,7 +58,7 @@ class LLMClient:
             self._fallback_client = self._build_client(self._fallback_api_key, self._fallback_base_url)
         return self._fallback_client
 
-    def complete(self, model: str, messages: list[dict[str, Any]], tools: list[dict] | None = None) -> Any:
+    def complete(self, model: str, messages: list[dict[str, Any]], tools: list[dict] | None = None, reasoning_effort: str = "standard") -> Any:
         """Non-streaming completion, kept for compatibility/testing.
 
         Returns the raw chat message so callers can inspect `content` and
@@ -68,6 +68,8 @@ class LLMClient:
         kwargs: dict[str, Any] = {"model": model, "messages": messages}
         if tools:
             kwargs["tools"] = tools
+        if reasoning_effort == "max":
+            kwargs["extra_body"] = {"reasoning": {"effort": "xhigh"}}
         response = self._get_client().chat.completions.create(**kwargs)
         message = response.choices[0].message
         try:
@@ -76,7 +78,7 @@ class LLMClient:
             pass
         return message
 
-    def stream(self, model: str, messages: list[dict[str, Any]], tools: list[dict] | None = None) -> Iterator[dict[str, Any]]:
+    def stream(self, model: str, messages: list[dict[str, Any]], tools: list[dict] | None = None, reasoning_effort: str = "standard") -> Iterator[dict[str, Any]]:
         """Yield live events (see module docstring) for one generation pass.
 
         If the primary provider fails before yielding its first delta (rate
@@ -92,7 +94,7 @@ class LLMClient:
         last_exc: Exception | None = None
         for client, attempt_model, provider in attempts:
             try:
-                yield from self._stream_with(client, attempt_model, messages, tools, provider)
+                yield from self._stream_with(client, attempt_model, messages, tools, provider, reasoning_effort)
                 return
             except Exception as exc:
                 if not _is_retryable(exc):
@@ -108,6 +110,7 @@ class LLMClient:
         messages: list[dict[str, Any]],
         tools: list[dict] | None,
         provider: str,
+        reasoning_effort: str = "standard",
     ) -> Iterator[dict[str, Any]]:
         kwargs: dict[str, Any] = {
             "model": model,
@@ -117,6 +120,8 @@ class LLMClient:
         }
         if tools:
             kwargs["tools"] = tools
+        if reasoning_effort == "max":
+            kwargs["extra_body"] = {"reasoning": {"effort": "xhigh"}}
 
         stream = client.chat.completions.create(**kwargs)
         chunks = iter(stream)

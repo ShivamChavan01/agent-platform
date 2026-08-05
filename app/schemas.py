@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -144,6 +144,9 @@ class AttachmentIn(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=10000)
     attachments: list[AttachmentIn] | None = None
+    # "standard" omits the reasoning param entirely; "max" asks the provider
+    # for deeper reasoning via nested {"reasoning": {"effort": "xhigh"}}.
+    reasoning_effort: Literal["standard", "max"] = "standard"
 
 
 # ---------- Files ----------

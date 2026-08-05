@@ -144,7 +144,7 @@ export function Workspace() {
     setProject(updated);
   };
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text: string, reasoningEffort: "standard" | "max" = "standard") => {
     if (!projectId) return;
     let cid = activeId;
     if (!cid) {
@@ -176,7 +176,7 @@ export function Workspace() {
           return { filename: a.name, content_b64: b64 };
         })
       );
-      await streamChat(projectId, cid, text, encoded);
+      await streamChat(projectId, cid, text, encoded, reasoningEffort);
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
       if (d.title) {
@@ -194,14 +194,14 @@ export function Workspace() {
     }
   };
 
-  const streamChat = async (pid: string, cid: string, text: string, attachments?: { filename: string; content_b64: string }[]) => {
+  const streamChat = async (pid: string, cid: string, text: string, attachments?: { filename: string; content_b64: string }[], reasoningEffort?: "standard" | "max") => {
     const res = await fetch(`/projects/${pid}/conversations/${cid}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${getToken() ?? ""}`,
       },
-      body: JSON.stringify({ message: text, attachments: attachments?.length ? attachments : undefined }),
+      body: JSON.stringify({ message: text, attachments: attachments?.length ? attachments : undefined, reasoning_effort: reasoningEffort }),
     });
     if (!res.ok) {
       let message = `Chat failed (${res.status})`;
@@ -360,7 +360,7 @@ export function Workspace() {
               projectModel={project?.model ?? ""}
               attachments={attachments}
               onRemoveAttachment={(i) => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-              onSend={(t) => void sendMessage(t)}
+              onSend={(t, effort) => void sendMessage(t, effort)}
               onAttach={(files) => {
                 const newAttachments = Array.from(files).map((f) => ({ file: f, name: f.name }));
                 setAttachments((prev) => [...prev, ...newAttachments]);

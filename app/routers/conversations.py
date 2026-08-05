@@ -226,7 +226,7 @@ def chat(
                 result: dict | None = None
                 content_parts: list[str] = []
                 reasoning_parts: list[str] = []
-                for ev in llm.stream(model, messages, tools=available_tools()):
+                for ev in llm.stream(model, messages, tools=available_tools(), reasoning_effort=payload.reasoning_effort):
                     if ev["type"] == "provider":
                         yield sse(
                             {

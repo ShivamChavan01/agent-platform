@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Paperclip, Send, X, Check, ChevronDown } from "lucide-react";
+import { Paperclip, Send, X, Check, ChevronDown, Zap } from "lucide-react";
 import { MODEL_CATALOG } from "./Sidebar";
 
 interface ComposerProps {
@@ -16,13 +16,14 @@ interface ComposerProps {
   projectModel: string;
   attachments: { file: File; name: string }[];
   onRemoveAttachment: (index: number) => void;
-  onSend: (text: string) => void;
+  onSend: (text: string, reasoningEffort: "standard" | "max") => void;
   onAttach: (files: FileList) => void;
   onModelChange: (model: string) => void;
 }
 
 export function Composer({ sending, projectModel, attachments, onRemoveAttachment, onSend, onAttach, onModelChange }: ComposerProps) {
   const [text, setText] = useState("");
+  const [reasoningEffort, setReasoningEffort] = useState<"standard" | "max">("standard");
   const sendOnEnter = () => localStorage.getItem("aw_send_on_enter") !== "false";
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -32,7 +33,7 @@ export function Composer({ sending, projectModel, attachments, onRemoveAttachmen
     const value = text.trim();
     if (!value || sending) return;
     setText("");
-    onSend(value);
+    onSend(value, reasoningEffort);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -102,6 +103,22 @@ export function Composer({ sending, projectModel, attachments, onRemoveAttachmen
                 e.target.value = "";
               }}
             />
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`composer-btn ${reasoningEffort === "max" ? "active" : ""}`}
+              title={
+                reasoningEffort === "max"
+                  ? "Max reasoning: deeper, slower thinking"
+                  : "Standard reasoning"
+              }
+              onClick={() =>
+                setReasoningEffort((e) => (e === "standard" ? "max" : "standard"))
+              }
+            >
+              <Zap className="h-3.5 w-3.5" />
+              {reasoningEffort === "max" ? "Max" : "Standard"}
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
