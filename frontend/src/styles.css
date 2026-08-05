@@ -987,6 +987,60 @@ html[data-theme="light"] .input-box {
   margin-top: 6px;
 }
 
+/* Usage budget bars (session/weekly) inside the composer */
+.usage-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.usage-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 160px;
+  flex: 1 1 160px;
+}
+
+.usage-bar-label {
+  font-size: 11px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+}
+
+.usage-bar-reset {
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-bar-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-hover);
+  overflow: hidden;
+  min-width: 40px;
+}
+
+.usage-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+
+.usage-bar-fill.warn {
+  background: #f59e0b;
+}
+
+.usage-bar-fill.over {
+  background: var(--accent-rose);
+}
+
 .composer-btn {
   display: inline-flex;
   align-items: center;

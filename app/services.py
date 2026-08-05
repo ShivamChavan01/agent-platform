@@ -53,3 +53,51 @@ def get_user_usage(db: Session, user_id: uuid.UUID, window_hours: int) -> dict:
         "completion_tokens": int(completion_tokens),
         "total_tokens": int(total_tokens),
     }
+
+
+def get_user_usage_window(
+    db: Session, user_id: uuid.UUID, window_hours: int, cap_tokens: int
+) -> dict:
+    """Usage + cap math for one rolling window.
+
+    `seconds_until_reset` is the time until the oldest event in the current
+    window ages out (a rolling window "resets" continuously as tokens expire);
+    an empty window reports the full window duration.
+    """
+    stats = get_user_usage(db, user_id, window_hours)
+    now = datetime.now(timezone.utc)
+    window_seconds = window_hours * 3600
+    since = now - timedelta(hours=window_hours)
+    oldest = db.scalar(
+        select(func.min(UsageEvent.created_at)).where(
+            UsageEvent.user_id == user_id, UsageEvent.created_at >= since
+        )
+    )
+    if oldest is None:
+        seconds_until_reset = window_seconds
+    else:
+        seconds_until_reset = max(
+            0, int((oldest + timedelta(hours=window_hours) - now).total_seconds())
+        )
+    percent = (stats["total_tokens"] / cap_tokens * 100) if cap_tokens > 0 else 0.0
+    return {
+        "used_tokens": stats["total_tokens"],
+        "requests": stats["requests"],
+        "cap_tokens": cap_tokens,
+        "percent": percent,
+        "seconds_until_reset": seconds_until_reset,
+    }
+
+
+def get_usage_windows(db: Session, user_id: uuid.UUID) -> dict:
+    """Session (5h) and weekly (7d) usage windows for the composer bars."""
+    from app.config import settings
+
+    return {
+        "session": get_user_usage_window(
+            db, user_id, settings.session_token_window_hours, settings.session_token_limit
+        ),
+        "weekly": get_user_usage_window(
+            db, user_id, settings.weekly_token_window_hours, settings.weekly_token_limit
+        ),
+    }

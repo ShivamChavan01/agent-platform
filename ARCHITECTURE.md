@@ -64,6 +64,14 @@ POST /projects/{pid}/conversations/{cid}/chat  {"message": "..."}
   hard-blocks (`429`) when `usage_daily_token_limit` is set above 0 — the
   knob exists but is off by default, so metering never breaks a demo.
   Recording is best-effort (a failure must never take down a chat request).
+- **Session/weekly budget bars are rolling, self-imposed demo limits.** The
+  composer shows session (5h) and weekly (7d) token budgets from
+  `SESSION_TOKEN_LIMIT` / `WEEKLY_TOKEN_LIMIT`. A rolling window never
+  "resets" on a fixed schedule: its countdown (`seconds_until_reset`) is the
+  time until the oldest counted event ages out of the window, so the
+  percentage decays continuously as tokens expire. Like the daily cap, each
+  window hard-blocks chat with `429` when its limit is set above 0; caps are
+  UX guardrails, not provider billing quotas.
 - **JWT, not OAuth2.** OAuth2 is an authorization framework for third-party
   apps. For a first-party email/password API it adds a provider + redirect
   dance with no security benefit. Security comes from bcrypt, short-lived
@@ -120,7 +128,8 @@ POST /projects/{pid}/conversations/{cid}/chat  {"message": "..."}
   (projects + files survive), returns `{"deleted": n}`
 - `DELETE /auth/me` — delete account; cascades projects/conversations/
   messages/usage, removes file blobs from storage best-effort
-- `GET /auth/me/usage?window_hours=24` — per-user token aggregate
+- `GET /auth/me/usage?window_hours=24` — per-user token aggregate plus
+  `session` / `weekly` windows (used/cap/percent/seconds_until_reset)
 - `PATCH`/`DELETE /projects/{pid}/conversations/{cid}` — rename, pin, delete
   a thread; list is sorted pinned-first
 

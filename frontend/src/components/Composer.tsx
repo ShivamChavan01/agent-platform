@@ -10,18 +10,47 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Paperclip, Send, X, Check, ChevronDown, Zap } from "lucide-react";
 import { MODEL_CATALOG } from "./Sidebar";
+import type { Usage, UsageWindow } from "../lib/types";
 
 interface ComposerProps {
   sending: boolean;
   projectModel: string;
   attachments: { file: File; name: string }[];
+  usage: Usage | null;
   onRemoveAttachment: (index: number) => void;
   onSend: (text: string, reasoningEffort: "standard" | "max") => void;
   onAttach: (files: FileList) => void;
   onModelChange: (model: string) => void;
 }
 
-export function Composer({ sending, projectModel, attachments, onRemoveAttachment, onSend, onAttach, onModelChange }: ComposerProps) {
+function formatReset(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m ${Math.floor(seconds % 60)}s`;
+}
+
+function UsageBar({ label, window }: { label: string; window: UsageWindow }) {
+  if (!window.cap_tokens) return null;
+  const width = Math.min(100, window.percent);
+  const over = window.percent >= 100;
+  const warn = !over && window.percent >= 90;
+  return (
+    <div className="usage-bar" title={`${label}: ${window.used_tokens.toLocaleString()} / ${window.cap_tokens.toLocaleString()} tokens · resets in ${formatReset(window.seconds_until_reset)}`}>
+      <span className="usage-bar-label">
+        {label} · {Math.round(window.percent)}%
+      </span>
+      <div className="usage-bar-track">
+        <div
+          className={`usage-bar-fill ${over ? "over" : warn ? "warn" : ""}`}
+          style={{ width: `${width}%` }}
+        />
+      </div>
+      <span className="usage-bar-reset">{formatReset(window.seconds_until_reset)}</span>
+    </div>
+  );
+}
+
+export function Composer({ sending, projectModel, attachments, usage, onRemoveAttachment, onSend, onAttach, onModelChange }: ComposerProps) {
   const [text, setText] = useState("");
   const [reasoningEffort, setReasoningEffort] = useState<"standard" | "max">("standard");
   const sendOnEnter = () => localStorage.getItem("aw_send_on_enter") !== "false";
@@ -80,6 +109,12 @@ export function Composer({ sending, projectModel, attachments, onRemoveAttachmen
               el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
             }}
           />
+          {usage && (usage.session.cap_tokens > 0 || usage.weekly.cap_tokens > 0) && (
+            <div className="usage-strip">
+              {usage.session.cap_tokens > 0 && <UsageBar label="Session" window={usage.session} />}
+              {usage.weekly.cap_tokens > 0 && <UsageBar label="Weekly" window={usage.weekly} />}
+            </div>
+          )}
           <div className="composer-tools">
             <Button
               variant="ghost"

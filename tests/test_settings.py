@@ -455,3 +455,139 @@ def test_daily_token_limit_429_when_configured(client, monkeypatch):
     )
     assert blocked.status_code == 429
     assert "error" in blocked.json()
+
+
+def test_usage_endpoint_includes_session_and_weekly_windows(client, db_session):
+    token = register(client).json()["access_token"]
+    pid = create_project(client, token).json()["id"]
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15)))
+    chat_events(client, token, pid, cid, "one")
+
+    body = client.get("/auth/me/usage", headers=auth_headers(token)).json()
+    assert body["session"]["used_tokens"] == 15
+    assert body["session"]["requests"] == 1
+    assert body["session"]["cap_tokens"] == settings.session_token_limit
+    assert body["weekly"]["used_tokens"] == 15
+    assert body["weekly"]["cap_tokens"] == settings.weekly_token_limit
+
+
+def test_session_window_excludes_old_events_and_weekly_does_not(client, db_session):
+    token = register(client).json()["access_token"]
+    pid = create_project(client, token).json()["id"]
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15)))
+    chat_events(client, token, pid, cid, "one")
+
+    # 6h old: inside the 7d weekly window, outside the 5h session window.
+    row = db_session.query(UsageEvent).one()
+    row.created_at = datetime.now(timezone.utc) - timedelta(hours=6)
+    db_session.commit()
+
+    body = client.get("/auth/me/usage", headers=auth_headers(token)).json()
+    assert body["session"]["used_tokens"] == 0
+    assert body["session"]["seconds_until_reset"] == settings.session_token_window_hours * 3600
+    assert body["weekly"]["used_tokens"] == 15
+
+
+def test_reset_seconds_counts_down_to_when_oldest_event_ages_out(client, db_session):
+    token = register(client).json()["access_token"]
+    pid = create_project(client, token).json()["id"]
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2)))
+    chat_events(client, token, pid, cid, "one")
+
+    row = db_session.query(UsageEvent).one()
+    row.created_at = datetime.now(timezone.utc) - timedelta(hours=2)
+    db_session.commit()
+
+    body = client.get("/auth/me/usage", headers=auth_headers(token)).json()
+    # Event ages out ~3h from now => remaining window is ~3h (plus clock slack).
+    reset = body["session"]["seconds_until_reset"]
+    assert 3 * 3600 - 300 <= reset <= 3 * 3600 + 300
+
+
+def test_session_and_weekly_percent_reflect_usage_and_cap(client, monkeypatch):
+    token = register(client).json()["access_token"]
+    pid = create_project(client, token).json()["id"]
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=8, completion_tokens=2, total_tokens=10)))
+    chat_events(client, token, pid, cid, "one")
+
+    monkeypatch.setattr(settings, "session_token_limit", 100)
+    body = client.get("/auth/me/usage", headers=auth_headers(token)).json()
+    assert body["session"]["percent"] == pytest.approx(10.0)
+    assert body["weekly"]["percent"] == pytest.approx(10 / settings.weekly_token_limit * 100)
+
+    monkeypatch.setattr(settings, "session_token_limit", 5)
+    body = client.get("/auth/me/usage", headers=auth_headers(token)).json()
+    assert body["session"]["percent"] >= 100
+
+
+def test_usage_windows_are_scoped_per_user(client, db_session):
+    token_a = register(client, email="a@example.com").json()["access_token"]
+    pid = create_project(client, token_a).json()["id"]
+    cid = create_conversation(client, token_a, pid).json()["id"]
+    use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=8, completion_tokens=2, total_tokens=10)))
+    chat_events(client, token_a, pid, cid, "hi")
+
+    token_b = register(client, email="b@example.com").json()["access_token"]
+    body = client.get("/auth/me/usage", headers=auth_headers(token_b)).json()
+    assert body["session"]["used_tokens"] == 0
+    assert body["weekly"]["used_tokens"] == 0
+
+
+def test_session_token_limit_429_when_configured(client, monkeypatch):
+    token = register(client).json()["access_token"]
+    pid = create_project(client, token).json()["id"]
+    cid = create_conversation(client, token, pid).json()["id"]
+    use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=8, completion_tokens=2, total_tokens=10)))
+
+    monkeypatch.setattr(settings, "session_token_limit", 15)
+    _, first = chat_events(client, token, pid, cid, "one")
+    assert done_event(first) is not None
+
+    # Crosses the session limit mid-stream: in-band error event, no done.
+    _, second = chat_events(client, token, pid, cid, "two")
+    assert done_event(second) is None
+    errors = [ev for ev in second if ev["event"] == "error"]
+    assert len(errors) == 1
+    assert "Session" in errors[0]["error"]
+
+    # Already over the session limit: rejected at the door with HTTP 429.
+    blocked = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat",
+        headers=auth_headers(token),
+        json={"message": "three"},
+    )
+    assert blocked.status_code == 429
+
+
+def test_weekly_token_limit_429_when_configured(client, monkeypatch):
+    token = register(client).json()["access_token"]
+    pid = create_project(client, token).json()["id"]
+    cid = create_conversation(client, token, pid).json()["id"]
+    use_llm(client, UsageLLM(content="a", usage=SimpleNamespace(prompt_tokens=8, completion_tokens=2, total_tokens=10)))
+
+    monkeypatch.setattr(settings, "weekly_token_limit", 15)
+    _, first = chat_events(client, token, pid, cid, "one")
+    assert done_event(first) is not None
+
+    # Crosses the weekly limit mid-stream: in-band error event, no done.
+    _, second = chat_events(client, token, pid, cid, "two")
+    assert done_event(second) is None
+    errors = [ev for ev in second if ev["event"] == "error"]
+    assert len(errors) == 1
+    assert "Weekly" in errors[0]["error"]
+
+    blocked = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat",
+        headers=auth_headers(token),
+        json={"message": "three"},
+    )
+    assert blocked.status_code == 429
+    assert "Weekly" in blocked.json()["error"]

@@ -166,7 +166,7 @@ def chat(
     """
     conversation = get_owned_conversation(db, user, project_id, conversation_id)
     project = get_owned_project(db, user, project_id)
-    _enforce_usage_limit(db, user)
+    _enforce_usage_limit(db, user.id)
 
     # Capture plain primitives up front: the SSE generator below runs in a
     # worker thread, and touching ORM attributes (which expire on commit)
@@ -265,7 +265,7 @@ def chat(
 
             _record_usage(db, uid, pid, cid, result["model"], result.get("usage"))
             try:
-                _enforce_usage_limit(db, user)
+                _enforce_usage_limit(db, uid)
             except HTTPException as exc:
                 yield sse({"event": "error", "error": exc.detail})
                 return
@@ -420,13 +420,25 @@ def strip_emoji(text: str) -> str:
     return _EMOJI_RE.sub("", text)
 
 
-def _enforce_usage_limit(db: Session, user: User) -> None:
-    limit = settings.usage_daily_token_limit
-    if limit <= 0:
-        return
-    stats = get_user_usage(db, user.id, settings.usage_window_hours)
-    if stats["total_tokens"] >= limit:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Daily token usage limit reached, please try again later",
-        )
+def _enforce_usage_limit(db: Session, user_id: uuid.UUID) -> None:
+    """Reject the request once any configured rolling usage cap is hit.
+
+    Caps are self-imposed demo limits (UX purposes), not provider quotas;
+    a cap <= 0 disables it. Returns the first over-limit window. Takes the
+    primitive user_id (never the ORM instance): this runs inside the SSE
+    generator worker thread, where expired/detached ORM attributes crash.
+    """
+    caps = [
+        (settings.usage_daily_token_limit, settings.usage_window_hours, "Daily"),
+        (settings.session_token_limit, settings.session_token_window_hours, "Session"),
+        (settings.weekly_token_limit, settings.weekly_token_window_hours, "Weekly"),
+    ]
+    for limit, window_hours, label in caps:
+        if limit <= 0:
+            continue
+        stats = get_user_usage(db, user_id, window_hours)
+        if stats["total_tokens"] >= limit:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"{label} token usage limit reached, please try again later",
+            )

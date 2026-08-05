@@ -17,7 +17,7 @@ from app.schemas import (
     UserUpdate,
 )
 from app.security import create_access_token, hash_password, verify_password
-from app.services import get_user_usage
+from app.services import get_usage_windows, get_user_usage
 from app.storage import StorageBackend, get_storage
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -139,4 +139,5 @@ def get_usage(
     db: Session = Depends(get_db),
 ) -> UsageOut:
     stats = get_user_usage(db, user.id, window_hours)
-    return UsageOut(**stats, window_hours=window_hours)
+    windows = get_usage_windows(db, user.id)
+    return UsageOut(**stats, window_hours=window_hours, **windows)

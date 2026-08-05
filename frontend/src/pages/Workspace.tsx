@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, getToken } from "../lib/api";
-import type { Conversation, ConversationDetail, Message, Project, ProjectFile } from "../lib/types";
+import type { Conversation, ConversationDetail, Message, Project, ProjectFile, Usage } from "../lib/types";
 import { Sidebar } from "../components/Sidebar";
 import { Header } from "../components/Header";
 import { Logo } from "../components/Logo";
@@ -42,6 +42,7 @@ export function Workspace() {
   const [canvasOpen, setCanvasOpen] = useState(false);
   const [attachments, setAttachments] = useState<{ file: File; name: string }[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoOpenedRef = useRef(false);
 
@@ -82,6 +83,15 @@ export function Workspace() {
     setDetail(d);
   }, [projectId, conversationId]);
 
+  const loadUsage = useCallback(async () => {
+    try {
+      const u = await api.get<Usage>("/auth/me/usage");
+      setUsage(u);
+    } catch {
+      /* usage is cosmetic — never block the workspace on it */
+    }
+  }, []);
+
   useEffect(() => {
     if (!projectId) return;
     Promise.all([api.get<Project>(`/projects/${projectId}`), api.get<ProjectFile[]>(`/projects/${projectId}/files`)])
@@ -96,6 +106,10 @@ export function Workspace() {
   useEffect(() => {
     void loadDetail();
   }, [loadDetail]);
+
+  useEffect(() => {
+    void loadUsage();
+  }, [loadUsage]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -189,6 +203,7 @@ export function Workspace() {
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
     } finally {
+      void loadUsage();
       setSending(false);
       setDraft(null);
     }
@@ -359,6 +374,7 @@ export function Workspace() {
               sending={sending}
               projectModel={project?.model ?? ""}
               attachments={attachments}
+              usage={usage}
               onRemoveAttachment={(i) => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
               onSend={(t, effort) => void sendMessage(t, effort)}
               onAttach={(files) => {

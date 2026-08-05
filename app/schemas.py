@@ -86,12 +86,22 @@ class PreferencesUpdate(BaseModel):
     context_window: int | None = Field(default=None, ge=1, le=512)
 
 
+class UsageWindowOut(BaseModel):
+    used_tokens: int
+    requests: int
+    cap_tokens: int
+    percent: float
+    seconds_until_reset: int
+
+
 class UsageOut(BaseModel):
     requests: int
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
     window_hours: int
+    session: UsageWindowOut
+    weekly: UsageWindowOut
 
 
 # ---------- Conversations / Messages / Chat ----------

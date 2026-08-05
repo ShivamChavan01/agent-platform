@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     usage_window_hours: int = 24
     usage_daily_token_limit: int = 0
 
+    # Rolling usage windows for the composer's session/weekly budget bars.
+    # Self-imposed demo limits (UX purposes), not tied to any provider
+    # billing quota. 0 disables the corresponding cap.
+    session_token_limit: int = 50_000
+    session_token_window_hours: int = 5
+    weekly_token_limit: int = 500_000
+    weekly_token_window_hours: int = 168
+
 
 @lru_cache
 def get_settings() -> Settings:

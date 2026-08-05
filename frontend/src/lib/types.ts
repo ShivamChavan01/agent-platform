@@ -62,12 +62,22 @@ export interface Preferences {
   context_window?: number | null;
 }
 
+export interface UsageWindow {
+  used_tokens: number;
+  requests: number;
+  cap_tokens: number;
+  percent: number;
+  seconds_until_reset: number;
+}
+
 export interface Usage {
   requests: number;
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
   window_hours: number;
+  session: UsageWindow;
+  weekly: UsageWindow;
 }
 
 export interface ModelOption {
