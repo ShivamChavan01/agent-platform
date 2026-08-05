@@ -151,6 +151,7 @@ const PREVIEW_PROBE = `
   };
   send();
   window.addEventListener("resize", send);
+  window.addEventListener("load", send);
   if (window.ResizeObserver) new ResizeObserver(send).observe(document.documentElement);
 })();
 </script>`;
@@ -200,7 +201,6 @@ export function InlinePreview({ block, onExpand }: { block: FencedBlock; onExpan
         title={`Live preview: ${block.name}`}
         sandbox="allow-scripts"
         srcDoc={withProbe(block.code)}
-        loading="lazy"
         style={height ? { height } : undefined}
       />
     </div>
