@@ -1,12 +1,16 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings
 from app.routers import auth, conversations, files, projects
+
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+_FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
 
 
 def _error_response(status_code: int, message: str) -> JSONResponse:
@@ -48,3 +52,24 @@ app.include_router(files.router)
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def spa_fallback(full_path: str):
+    """Serve the built React app (SPA) for any route the API doesn't own.
+
+    Registered after the API routers, so it only catches unmatched GETs.
+    Real files under frontend/dist (e.g. /assets/*.js) are served as-is;
+    everything else falls back to index.html so client-side routes like
+    /login and /app/projects/* survive a refresh. With no build present
+    (a bare API container) it returns a JSON 404.
+    """
+    if not _FRONTEND_INDEX.is_file():
+        return _error_response(404, "Not found")
+    base = _FRONTEND_DIST.resolve()
+    target = (base / (full_path or "index.html")).resolve()
+    if not str(target).startswith(str(base)):
+        return _error_response(404, "Not found")
+    if target.is_file():
+        return FileResponse(target)
+    return FileResponse(_FRONTEND_INDEX)

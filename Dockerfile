@@ -1,3 +1,12 @@
+# ---- Stage 1: build the React frontend ----
+FROM node:20-alpine AS frontend
+WORKDIR /build
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# ---- Stage 2: backend, serving the built frontend ----
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -13,7 +22,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # network calls — embeddings keep working offline in the demo.
 RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('nomic-ai/nomic-embed-text-v1.5')"
 
-COPY . .
+COPY app ./app
+COPY --from=frontend /build/dist ./frontend/dist
 
 EXPOSE 8000
 
