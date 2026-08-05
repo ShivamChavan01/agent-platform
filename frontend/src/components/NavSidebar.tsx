@@ -8,15 +8,22 @@ interface NavSidebarProps {
   active: "projects" | "settings";
   userName: string;
   userEmail: string;
+  open: boolean;
+  onNavigate?: () => void;
   onLogout: () => void;
 }
 
-export function NavSidebar({ active, userName, userEmail, onLogout }: NavSidebarProps) {
+export function NavSidebar({ active, userName, userEmail, open, onNavigate, onLogout }: NavSidebarProps) {
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
 
+  const go = (path: string) => {
+    onNavigate?.();
+    navigate(path);
+  };
+
   return (
-    <aside className="sidebar" style={{ position: "relative", marginLeft: 0 }}>
+    <aside className={`sidebar ${open ? "open" : ""}`}>
       <div className="sidebar-header">
         <Logo size={28} />
         <span style={{ fontSize: 14, fontWeight: 600 }}>openagent</span>
@@ -25,14 +32,14 @@ export function NavSidebar({ active, userName, userEmail, onLogout }: NavSidebar
       <nav className="sidebar-threads">
         <button
           className={`thread-item ${active === "projects" ? "active" : ""}`}
-          onClick={() => navigate("/app")}
+          onClick={() => go("/app")}
         >
           <Icon name="folder" size={14} />
           <span className="thread-title">Projects</span>
         </button>
         <button
           className={`thread-item ${active === "settings" ? "active" : ""}`}
-          onClick={() => navigate("/app/settings")}
+          onClick={() => go("/app/settings")}
         >
           <Icon name="settings" size={14} />
           <span className="thread-title">Settings</span>

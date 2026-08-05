@@ -47,6 +47,7 @@ export function Settings() {
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768);
 
   useEffect(() => {
     applyTheme(theme);
@@ -93,14 +94,23 @@ export function Settings() {
 
   return (
     <div className="shell">
-      <NavSidebar active="settings" userName={user?.name ?? ""} userEmail={user?.email ?? ""} onLogout={logoutNow} />
+      <NavSidebar
+        active="settings"
+        userName={user?.name ?? ""}
+        userEmail={user?.email ?? ""}
+        open={sidebarOpen}
+        onNavigate={() => {
+          if (window.innerWidth < 768) setSidebarOpen(false);
+        }}
+        onLogout={logoutNow}
+      />
       <div className="main-area">
         <Header
           title="Settings"
           breadcrumb="Account"
           userName={user?.name ?? ""}
           userEmail={user?.email ?? ""}
-          onToggleSidebar={() => {}}
+          onToggleSidebar={() => setSidebarOpen((v) => !v)}
           onLogout={logoutNow}
         />
         <div className="content">

@@ -630,13 +630,6 @@ select {
   user-select: none;
 }
 
-.thinking-toggle .spin-logo {
-  display: inline-flex;
-  align-items: center;
-  color: var(--accent);
-  animation: spin 3s linear infinite;
-}
-
 .thinking-body {
   padding: 0 12px 10px;
   margin: 0;
@@ -668,17 +661,23 @@ select {
   gap: 6px;
 }
 
-.live-dot .spin-logo {
-  display: inline-flex;
-  align-items: center;
-  color: var(--accent);
-  animation: spin 3s linear infinite;
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+.app-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--accent);
+}
+
+.app-loading .spin-logo {
+  display: inline-flex;
+  animation: spin 3s linear infinite;
 }
 
 .thinking-phrase {
@@ -987,7 +986,7 @@ html[data-theme="light"] .input-box {
   color: var(--fg);
   font-size: 14px;
   line-height: 1.5;
-  padding: 6px 4px;
+  padding: 6px 32px 6px 8px;
   max-height: 160px;
 }
 
@@ -1940,6 +1939,15 @@ html[data-theme="light"] .input-box {
   }
   .form-input {
     font-size: 16px;
+  }
+}
+
+@media (max-width: 639px) {
+  .usage-strip {
+    display: none;
+  }
+  .breadcrumb {
+    display: none;
   }
 }
 

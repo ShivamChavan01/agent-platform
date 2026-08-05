@@ -47,6 +47,18 @@ export function Workspace() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoOpenedRef = useRef(false);
+  const thinkingBufRef = useRef("");
+  const contentBufRef = useRef("");
+  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (flushTimerRef.current) {
+        clearInterval(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const openCanvas = (a: CanvasArtifact) => {
     setArtifactList((prev) => {
@@ -242,46 +254,70 @@ export function Workspace() {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const raw of lines) {
-        const line = raw.trim();
-        if (!line.startsWith("data:")) continue;
-        let ev: { event?: string; delta?: string; error?: string; id?: string; name?: string; arguments?: string; provider?: string; model?: string };
-        try {
-          ev = JSON.parse(line.slice(5).trim());
-        } catch {
-          continue;
-        }
-        switch (ev.event) {
-          case "thinking":
-            setDraft((d) => (d ? { ...d, thinking: d.thinking + (ev.delta ?? "") } : d));
-            break;
-          case "content":
-            setDraft((d) => (d ? { ...d, content: d.content + (ev.delta ?? "") } : d));
-            break;
-          case "tool": {
-            const tool: ToolCallUI = { id: ev.id ?? "", name: ev.name ?? "tool", arguments: ev.arguments ?? "" };
-            setDraft((d) =>
-              d
-                ? {
-                    ...d,
-                    tools: [...d.tools.filter((t) => t.id !== tool.id), tool],
-                  }
-                : d
-            );
-            break;
+    const flush = () => {
+      const thinking = thinkingBufRef.current;
+      const content = contentBufRef.current;
+      thinkingBufRef.current = "";
+      contentBufRef.current = "";
+      if (!thinking && !content) return;
+      setDraft((d) =>
+        d ? { ...d, thinking: d.thinking + thinking, content: d.content + content } : d
+      );
+    };
+    const scheduleFlush = () => {
+      if (flushTimerRef.current) return;
+      flushTimerRef.current = setInterval(flush, 40);
+    };
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const raw of lines) {
+          const line = raw.trim();
+          if (!line.startsWith("data:")) continue;
+          let ev: { event?: string; delta?: string; error?: string; id?: string; name?: string; arguments?: string; provider?: string; model?: string };
+          try {
+            ev = JSON.parse(line.slice(5).trim());
+          } catch {
+            continue;
           }
-          case "provider":
-            setDraft((d) => (d ? { ...d, provider: ev.provider ?? "primary", model: ev.model ?? "" } : d));
-            break;
-          case "error":
-            throw new Error(ev.error ?? "The model service is unavailable, please try again");
+          switch (ev.event) {
+            case "thinking":
+              thinkingBufRef.current += ev.delta ?? "";
+              scheduleFlush();
+              break;
+            case "content":
+              contentBufRef.current += ev.delta ?? "";
+              scheduleFlush();
+              break;
+            case "tool": {
+              const tool: ToolCallUI = { id: ev.id ?? "", name: ev.name ?? "tool", arguments: ev.arguments ?? "" };
+              setDraft((d) =>
+                d
+                  ? {
+                      ...d,
+                      tools: [...d.tools.filter((t) => t.id !== tool.id), tool],
+                    }
+                  : d
+              );
+              break;
+            }
+            case "provider":
+              setDraft((d) => (d ? { ...d, provider: ev.provider ?? "primary", model: ev.model ?? "" } : d));
+              break;
+            case "error":
+              throw new Error(ev.error ?? "The model service is unavailable, please try again");
+          }
         }
+      }
+    } finally {
+      flush();
+      if (flushTimerRef.current) {
+        clearInterval(flushTimerRef.current);
+        flushTimerRef.current = null;
       }
     }
   };
@@ -349,9 +385,7 @@ export function Workspace() {
                     <div className="assistant-body">
                       <div className="thinking-block">
                         <div className="thinking-toggle">
-                          <span className="spin-logo">
-                            <Logo size={14} />
-                          </span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                           <ThinkingPhrases />
                         </div>
                       </div>

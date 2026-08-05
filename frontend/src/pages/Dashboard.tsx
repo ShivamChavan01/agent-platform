@@ -30,6 +30,7 @@ export function Dashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768);
 
   const load = useCallback(async () => {
     try {
@@ -77,14 +78,23 @@ export function Dashboard() {
 
   return (
     <div className="shell">
-      <NavSidebar active="projects" userName={user?.name ?? ""} userEmail={user?.email ?? ""} onLogout={logoutNow} />
+      <NavSidebar
+        active="projects"
+        userName={user?.name ?? ""}
+        userEmail={user?.email ?? ""}
+        open={sidebarOpen}
+        onNavigate={() => {
+          if (window.innerWidth < 768) setSidebarOpen(false);
+        }}
+        onLogout={logoutNow}
+      />
       <div className="main-area">
         <Header
           title="Projects"
           breadcrumb="All"
           userName={user?.name ?? ""}
           userEmail={user?.email ?? ""}
-          onToggleSidebar={() => {}}
+          onToggleSidebar={() => setSidebarOpen((v) => !v)}
           onLogout={logoutNow}
         />
         <div className="content">

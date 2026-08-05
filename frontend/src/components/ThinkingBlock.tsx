@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Logo } from "./Logo";
 
 interface ThinkingBlockProps {
   text: string;
@@ -22,9 +21,7 @@ export function ThinkingBlock({ text }: ThinkingBlockProps) {
           }
         }}
       >
-        <span className="spin-logo">
-          <Logo size={14} />
-        </span>
+        <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
         <span>Thinking</span>
       </div>
       {showThinking && <pre className="thinking-body">{text}</pre>}

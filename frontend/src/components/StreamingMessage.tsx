@@ -38,9 +38,7 @@ export function StreamingMessage({ draft, onOpenCanvas }: StreamingMessageProps)
               <span className="fallback-badge">fallback · {draft.model}</span>
             ) : (
               <span className="msg-time live-dot">
-                <span className="spin-logo">
-                  <Logo size={12} />
-                </span>{" "}
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                 <ThinkingPhrases compact />
               </span>
             )}

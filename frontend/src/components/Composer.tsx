@@ -103,6 +103,10 @@ export function Composer({ sending, projectModel, attachments, usage, onRemoveAt
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
+            data-gramm="false"
+            data-gramm_editor="false"
+            data-enable-grammarly="false"
+            spellCheck={false}
             onInput={(e) => {
               const el = e.currentTarget;
               el.style.height = "auto";
@@ -124,7 +128,7 @@ export function Composer({ sending, projectModel, attachments, usage, onRemoveAt
               onClick={() => fileRef.current?.click()}
             >
               <Paperclip className="h-3.5 w-3.5" />
-              Attach
+              <span className="hidden sm:inline">Attach</span>
             </Button>
             <input
               ref={fileRef}
@@ -152,7 +156,9 @@ export function Composer({ sending, projectModel, attachments, usage, onRemoveAt
               }
             >
               <Zap className="h-3.5 w-3.5" />
-              {reasoningEffort === "max" ? "Max" : "Standard"}
+              <span className="hidden sm:inline">
+                {reasoningEffort === "max" ? "Max" : "Standard"}
+              </span>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

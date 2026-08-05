@@ -1,4 +1,4 @@
-import { isValidElement, useEffect, useRef, useState } from "react";
+import { isValidElement, memo, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "../lib/types";
@@ -14,7 +14,21 @@ interface ChatMessageProps {
   onOpenCanvas?: (artifact: CanvasArtifact) => void;
 }
 
-export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
+function messagesEqual(prev: ChatMessageProps, next: ChatMessageProps): boolean {
+  const a = prev.message;
+  const b = next.message;
+  return (
+    a.id === b.id &&
+    a.role === b.role &&
+    a.content === b.content &&
+    a.created_at === b.created_at &&
+    a.reasoning === b.reasoning &&
+    a.tool_name === b.tool_name &&
+    a.tool_arguments === b.tool_arguments
+  );
+}
+
+export const ChatMessage = memo(function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
   if (message.role === "user") {
     return <div className="user-bubble">{message.content}</div>;
   }
@@ -56,7 +70,7 @@ export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
       </div>
     </div>
   );
-}
+}, messagesEqual);
 
 function ToolCardBody({ content, preview, isLong }: { content: string; preview: string; isLong: boolean }) {
   const [expanded, setExpanded] = useState(false);
