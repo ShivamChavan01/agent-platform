@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { initials } from "./Sidebar";
-import { PanelLeft, ChevronRight, Settings, FolderOpen, LogOut } from "lucide-react";
+import { PanelLeft, ArrowLeft, ChevronRight, Settings, FolderOpen, LogOut } from "lucide-react";
 
 interface HeaderProps {
   title: string;
@@ -18,10 +18,11 @@ interface HeaderProps {
   userName: string;
   userEmail: string;
   onToggleSidebar: () => void;
+  onBack?: () => void;
   onLogout: () => void;
 }
 
-export function Header({ title, breadcrumb, userName, userEmail, onToggleSidebar, onLogout }: HeaderProps) {
+export function Header({ title, breadcrumb, userName, userEmail, onToggleSidebar, onBack, onLogout }: HeaderProps) {
   const navigate = useNavigate();
 
   return (
@@ -29,6 +30,19 @@ export function Header({ title, breadcrumb, userName, userEmail, onToggleSidebar
       <Button type="button" variant="ghost" size="icon" onClick={onToggleSidebar} title="Toggle sidebar">
         <PanelLeft className="h-4 w-4" />
       </Button>
+      {onBack && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="sm:hidden"
+          onClick={onBack}
+          title="Back to projects"
+          aria-label="Back to projects"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+      )}
       <span className="header-title">{title}</span>
       <div className="breadcrumb">
         <span className="link" onClick={() => navigate("/app")}>

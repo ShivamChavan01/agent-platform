@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { X } from "lucide-react";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
 import { initials } from "./Sidebar";
@@ -10,10 +11,11 @@ interface NavSidebarProps {
   userEmail: string;
   open: boolean;
   onNavigate?: () => void;
+  onClose: () => void;
   onLogout: () => void;
 }
 
-export function NavSidebar({ active, userName, userEmail, open, onNavigate, onLogout }: NavSidebarProps) {
+export function NavSidebar({ active, userName, userEmail, open, onNavigate, onClose, onLogout }: NavSidebarProps) {
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -23,11 +25,21 @@ export function NavSidebar({ active, userName, userEmail, open, onNavigate, onLo
   };
 
   return (
-    <aside className={`sidebar ${open ? "open" : ""}`}>
-      <div className="sidebar-header">
-        <Logo size={28} />
-        <span style={{ fontSize: 14, fontWeight: 600 }}>openagent</span>
-      </div>
+    <>
+      <aside className={`sidebar ${open ? "open" : "collapsed"}`}>
+        <div className="sidebar-header">
+          <Logo size={28} />
+          <span style={{ fontSize: 14, fontWeight: 600 }}>openagent</span>
+          <div style={{ flex: 1 }} />
+          <button
+            className="sidebar-close-btn"
+            onClick={onClose}
+            title="Close sidebar"
+            aria-label="Close sidebar"
+          >
+            <X size={16} />
+          </button>
+        </div>
 
       <nav className="sidebar-threads">
         <button
@@ -75,6 +87,8 @@ export function NavSidebar({ active, userName, userEmail, open, onNavigate, onLo
           </div>
         )}
       </div>
-    </aside>
+      </aside>
+      {open && <div className="sidebar-overlay show" onClick={onClose} />}
+    </>
   );
 }

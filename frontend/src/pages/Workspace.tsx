@@ -36,7 +36,7 @@ export function Workspace() {
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" && window.innerWidth > 1024);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState<StreamingDraft | null>(null);
   const [artifactList, setArtifactList] = useState<CanvasArtifact[]>([]);
@@ -347,6 +347,7 @@ export function Workspace() {
           userName={user?.name ?? ""}
           userEmail={user?.email ?? ""}
           onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          onBack={() => navigate("/app")}
           onLogout={logoutNow}
         />
 

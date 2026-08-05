@@ -47,7 +47,7 @@ export function Settings() {
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" && window.innerWidth > 1024);
 
   useEffect(() => {
     applyTheme(theme);
@@ -102,6 +102,7 @@ export function Settings() {
         onNavigate={() => {
           if (window.innerWidth < 768) setSidebarOpen(false);
         }}
+        onClose={() => setSidebarOpen(false)}
         onLogout={logoutNow}
       />
       <div className="main-area">

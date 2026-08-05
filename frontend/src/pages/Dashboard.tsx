@@ -30,7 +30,7 @@ export function Dashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" && window.innerWidth > 1024);
 
   const load = useCallback(async () => {
     try {
@@ -86,6 +86,7 @@ export function Dashboard() {
         onNavigate={() => {
           if (window.innerWidth < 768) setSidebarOpen(false);
         }}
+        onClose={() => setSidebarOpen(false)}
         onLogout={logoutNow}
       />
       <div className="main-area">
@@ -98,8 +99,8 @@ export function Dashboard() {
           onLogout={logoutNow}
         />
         <div className="content">
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-            <div className="search-box" style={{ width: 260 }}>
+          <div className="project-toolbar">
+            <div className="search-box">
               <Icon name="search" size={14} />
               <input
                 placeholder="Search projects..."
@@ -110,7 +111,7 @@ export function Dashboard() {
             <div style={{ flex: 1 }} />
             <button className="create-btn" onClick={() => setCreateOpen(true)}>
               <Icon name="plus" size={14} />
-              New Project
+              <span className="create-btn-label">New Project</span>
             </button>
           </div>
 
