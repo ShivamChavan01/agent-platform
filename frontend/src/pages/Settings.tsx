@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
-import type { Preferences, Usage } from "../lib/types";
 import { NavSidebar } from "../components/NavSidebar";
 import { Header } from "../components/Header";
-import { MODEL_CATALOG } from "../components/Sidebar";
 import { useAuth } from "../App";
 
 type Theme = "dark" | "light" | "system";
@@ -27,51 +25,22 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
   );
 }
 
-const API_KEY_ROWS = [
-  { name: "DeepSeek", masked: "ds-****…****8f2a" },
-  { name: "OpenAI", masked: "sk-****…****3b7d" },
-  { name: "Anthropic", masked: "sk-ant-****…****9c1e" },
-];
-
 export function Settings() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [theme, setTheme] = useState<Theme>("dark");
-  const [language, setLanguage] = useState("English");
   const [sendOnEnter, setSendOnEnter] = useState(() => localStorage.getItem("aw_send_on_enter") !== "false");
-  const [spellCheck, setSpellCheck] = useState(true);
-  const [autoSave, setAutoSave] = useState(true);
-  const [canvasApply, setCanvasApply] = useState(true);
-  const [showThinking, setShowThinking] = useState(true);
-  const [prefs, setPrefs] = useState<Preferences>({});
-  const [usage, setUsage] = useState<Usage | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    const [p, u] = await Promise.all([
-      api.get<Preferences>("/auth/me/preferences"),
-      api.get<Usage>("/auth/me/usage?window_hours=24"),
-    ]);
-    setPrefs(p);
-    setUsage(u);
-  }, []);
-
   useEffect(() => {
-    void load();
     applyTheme(theme);
-  }, [theme, load]);
+  }, [theme]);
 
   const logoutNow = () => {
     logout();
     navigate("/login");
-  };
-
-  const setPref = async (key: keyof Preferences, value: string | number | null) => {
-    await api.patch<Preferences>("/auth/me/preferences", { [key]: value });
-    const p = await api.get<Preferences>("/auth/me/preferences");
-    setPrefs(p);
   };
 
   const toggleSendOnEnter = (v: boolean) => {
@@ -130,7 +99,7 @@ export function Settings() {
               <div className="settings-row">
                 <div>
                   <div className="settings-row-label">Theme</div>
-                  <div className="settings-row-desc">Appearance across the workspace</div>
+                  <div className="settings-row-desc">Appearance across the app</div>
                 </div>
                 <div className="settings-control">
                   <select className="select" value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
@@ -142,141 +111,11 @@ export function Settings() {
               </div>
               <div className="settings-row">
                 <div>
-                  <div className="settings-row-label">Language</div>
-                  <div className="settings-row-desc">Interface language</div>
-                </div>
-                <div className="settings-control">
-                  <select className="select" value={language} onChange={(e) => setLanguage(e.target.value)}>
-                    <option>English</option>
-                    <option>Hindi</option>
-                    <option>Japanese</option>
-                    <option>Chinese</option>
-                  </select>
-                </div>
-              </div>
-              <div className="settings-row">
-                <div>
                   <div className="settings-row-label">Send on Enter</div>
                   <div className="settings-row-desc">Enter sends, Shift+Enter for a new line</div>
                 </div>
                 <Toggle on={sendOnEnter} onChange={toggleSendOnEnter} />
               </div>
-              <div className="settings-row">
-                <div>
-                  <div className="settings-row-label">Spell check</div>
-                  <div className="settings-row-desc">Spell check in the composer</div>
-                </div>
-                <Toggle on={spellCheck} onChange={setSpellCheck} />
-              </div>
-            </section>
-
-            <section>
-              <div className="settings-section-title">Usage</div>
-              <div style={{ fontSize: 12, color: "var(--fg-dim)" }}>Token usage over the last {usage?.window_hours ?? 24} hours</div>
-              <div className="usage-grid">
-                <div className="usage-card">
-                  <div className="usage-card-value">{usage?.requests ?? 0}</div>
-                  <div className="usage-card-label">Requests</div>
-                </div>
-                <div className="usage-card">
-                  <div className="usage-card-value">{usage?.total_tokens ?? 0}</div>
-                  <div className="usage-card-label">Total tokens</div>
-                </div>
-                <div className="usage-card">
-                  <div className="usage-card-value">{usage?.prompt_tokens ?? 0}</div>
-                  <div className="usage-card-label">Prompt tokens</div>
-                </div>
-                <div className="usage-card">
-                  <div className="usage-card-value">{usage?.completion_tokens ?? 0}</div>
-                  <div className="usage-card-label">Completion tokens</div>
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <div className="settings-section-title">Default Model</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-                {MODEL_CATALOG.map((m) => {
-                  const selected = (prefs.default_model ?? MODEL_CATALOG[0].id) === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      className={`model-card ${selected ? "selected" : ""}`}
-                      onClick={() => void setPref("default_model", m.id)}
-                    >
-                      <span className="model-radio" />
-                      <span style={{ flex: 1 }}>
-                        <span className="model-card-name">
-                          {m.label}
-                          {selected && <span className="model-badge">Default</span>}
-                        </span>
-                        <span className="model-card-desc" style={{ display: "block" }}>
-                          {m.description}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section>
-              <div className="settings-section-title">Workspace</div>
-              <div className="settings-row">
-                <div>
-                  <div className="settings-row-label">Auto-save</div>
-                  <div className="settings-row-desc">Automatically save your work</div>
-                </div>
-                <Toggle on={autoSave} onChange={setAutoSave} />
-              </div>
-              <div className="settings-row">
-                <div>
-                  <div className="settings-row-label">Canvas auto-apply</div>
-                  <div className="settings-row-desc">Apply generated changes to the canvas</div>
-                </div>
-                <Toggle on={canvasApply} onChange={setCanvasApply} />
-              </div>
-              <div className="settings-row">
-                <div>
-                  <div className="settings-row-label">Show thinking blocks</div>
-                  <div className="settings-row-desc">Display reasoning steps in chat</div>
-                </div>
-                <Toggle on={showThinking} onChange={setShowThinking} />
-              </div>
-              <div className="settings-row">
-                <div>
-                  <div className="settings-row-label">Context window</div>
-                  <div className="settings-row-desc">Token context for your conversations</div>
-                </div>
-                <div className="settings-control">
-                  <select
-                    className="select"
-                    value={String(prefs.context_window ?? 16)}
-                    onChange={(e) => void setPref("context_window", Number(e.target.value))}
-                  >
-                    <option value="4">4K</option>
-                    <option value="16">16K</option>
-                    <option value="32">32K</option>
-                    <option value="128">128K</option>
-                  </select>
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <div className="settings-section-title">API Keys</div>
-              <div style={{ fontSize: 12, color: "var(--fg-dim)", padding: "8px 0" }}>
-                Keys are managed on the shared workspace — rotating them here is disabled.
-              </div>
-              {API_KEY_ROWS.map((row) => (
-                <div className="api-key-row" key={row.name}>
-                  <span className="api-key-name">{row.name}</span>
-                  <span className="api-key-masked">{row.masked}</span>
-                  <button className="btn-secondary" disabled title="Disabled">
-                    Rotate
-                  </button>
-                </div>
-              ))}
             </section>
 
             <section>
