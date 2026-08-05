@@ -10,7 +10,6 @@ import { Composer } from "../components/Composer";
 import { CanvasPane, type CanvasArtifact } from "../components/CanvasPane";
 import { StreamingMessage, type StreamingDraft, type ToolCallUI } from "../components/StreamingMessage";
 import { ThinkingPhrases } from "../components/ThinkingPhrases";
-import { Icon } from "../components/Icon";
 import { useAuth } from "../App";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -305,10 +304,10 @@ export function Workspace() {
                 {!activeId && (
                   <div className="empty-state">
                     <div className="empty-state-icon">
-                      <Icon name="chat" size={48} />
+                      <Logo size={48} />
                     </div>
                     <h3>{project?.name}</h3>
-                    <p>{project?.description || "Start a conversation with this agent."}</p>
+                    <p>{project?.description || "Start a new conversation or select one from the sidebar."}</p>
                   </div>
                 )}
                 {lastMessages.map((m) => (

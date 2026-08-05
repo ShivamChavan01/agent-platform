@@ -16,7 +16,7 @@ export function NavSidebar({ active, userName, userEmail, onLogout }: NavSidebar
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
-    <aside className="sidebar" style={{ position: "relative" }}>
+    <aside className="sidebar" style={{ position: "relative", marginLeft: 0 }}>
       <div className="sidebar-header">
         <Logo size={28} />
         <span style={{ fontSize: 14, fontWeight: 600 }}>openagent</span>
