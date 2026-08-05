@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_storage_bucket: str = "project-files"
 
+    # Optional web search provider (Tavily). When empty, the web_search tool
+    # is not offered to the model at all — same principle as any optional key.
+    tavily_api_key: str = ""
+
     max_upload_bytes: int = 10 * 1024 * 1024
 
     usage_window_hours: int = 24

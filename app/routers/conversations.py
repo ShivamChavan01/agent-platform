@@ -28,7 +28,7 @@ from app.schemas import (
     ConversationUpdate,
 )
 from app.services import get_owned_conversation, get_owned_project, get_user_usage
-from app.tools import MAX_TOOL_TURNS, TOOLS, execute_tool
+from app.tools import MAX_TOOL_TURNS, available_tools, execute_tool
 
 router = APIRouter()
 
@@ -222,7 +222,7 @@ def chat(
                 result: dict | None = None
                 content_parts: list[str] = []
                 reasoning_parts: list[str] = []
-                for ev in llm.stream(model, messages, tools=TOOLS):
+                for ev in llm.stream(model, messages, tools=available_tools()):
                     if ev["type"] == "provider":
                         yield sse(
                             {

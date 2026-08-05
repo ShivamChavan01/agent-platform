@@ -92,6 +92,16 @@ POST /projects/{pid}/conversations/{cid}/chat  {"message": "..."}
   `l2_distance`. **Known limit:** retrieval returns nearest matches without a
   relevance cutoff — a production version would add a distance threshold to
   avoid injecting irrelevant context.
+- **web_search (Tavily) — SHIPPED.** A third tool in the same tool-calling
+  loop as calculator / search_project_files. `web_search(query)` POSTs to
+  the Tavily search endpoint (stdlib `urllib` only — no new dependency) and
+  returns the top results (title + url + snippet) formatted with the same
+  `\n\n---\n\n` separator `search_chunks` results use. **Key gating:** the
+  tool definition is only offered to the model when `TAVILY_API_KEY` is set
+  (`available_tools()` filters it out otherwise), and any network/API
+  failure returns the graceful string "Error: web search unavailable" to the
+  loop so a degraded request never crashes. No new loop logic — it runs
+  under the existing MAX_TOOL_TURNS guard.
 - **Roles (RBAC)** — additive: a `role` column on users + a
   `require_admin` dependency. Explicitly out of scope for now.
 - **Streaming** — the LLM boundary is a single `complete()` method;

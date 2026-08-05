@@ -2,9 +2,10 @@ import json
 
 import pytest
 
+from app.config import settings
 from app.llm import get_llm_client
 from app.models import Message
-from app.tools import TOOLS, evaluate_expression, execute_tool
+from app.tools import TOOLS, available_tools, evaluate_expression, execute_tool
 from conftest import auth_headers, chat_events, done_event, register
 
 
@@ -46,7 +47,123 @@ def test_unknown_tool_name_raises():
 
 def test_tool_definitions_are_consistent():
     names = {t["function"]["name"] for t in TOOLS}
-    assert names == {"calculator", "search_project_files"}
+    assert names == {"calculator", "search_project_files", "web_search"}
+
+
+# ---------- web_search (Tavily) ----------
+
+
+def test_web_search_excluded_from_offered_tools_without_api_key():
+    assert {t["function"]["name"] for t in available_tools()} == {
+        "calculator",
+        "search_project_files",
+    }
+
+
+def test_web_search_included_when_api_key_set(monkeypatch):
+    monkeypatch.setattr(settings, "tavily_api_key", "test-key")
+    assert "web_search" in {t["function"]["name"] for t in available_tools()}
+
+
+def test_web_search_formats_results(monkeypatch):
+    monkeypatch.setattr(settings, "tavily_api_key", "test-key")
+    monkeypatch.setattr(
+        "app.tools._tavily_search",
+        lambda query: [
+            {"title": "Python Programming Language", "url": "https://www.python.org/", "content": "Python is a programming language."},
+            {"title": "OpenAI API", "url": "https://platform.openai.com/", "content": "Build AI applications with the OpenAI API."},
+        ],
+    )
+    result = execute_tool("web_search", {"query": "python"}, db=None, project_id=None, embedder=None)
+    assert "Python Programming Language" in result
+    assert "https://www.python.org/" in result
+    assert "Python is a programming language." in result
+    assert "OpenAI API" in result
+    assert "\n\n---\n\n" in result
+
+
+def test_web_search_empty_query_returns_error():
+    result = execute_tool("web_search", {"query": "   "}, db=None, project_id=None, embedder=None)
+    assert result == "Error: query must be a non-empty string"
+
+
+def test_web_search_no_api_key_returns_error():
+    result = execute_tool("web_search", {"query": "python"}, db=None, project_id=None, embedder=None)
+    assert result == "Error: web search unavailable"
+
+
+def test_web_search_api_failure_returns_error(monkeypatch):
+    monkeypatch.setattr(settings, "tavily_api_key", "test-key")
+    monkeypatch.setattr("app.tools._tavily_search", lambda query: (_ for _ in ()).throw(RuntimeError("boom")))
+    result = execute_tool("web_search", {"query": "python"}, db=None, project_id=None, embedder=None)
+    assert result == "Error: web search unavailable"
+
+
+def test_web_search_no_results_returns_note(monkeypatch):
+    monkeypatch.setattr(settings, "tavily_api_key", "test-key")
+    monkeypatch.setattr("app.tools._tavily_search", lambda query: [])
+    result = execute_tool("web_search", {"query": "nothing relevant"}, db=None, project_id=None, embedder=None)
+    assert "No results" in result
+
+
+def test_chat_with_web_search_tool_grounds_answer(client, conv, monkeypatch):
+    token, pid, cid = conv
+    monkeypatch.setattr(settings, "tavily_api_key", "test-key")
+    monkeypatch.setattr(
+        "app.tools._tavily_search",
+        lambda query: [
+            {"title": "Python 3 Release", "url": "https://www.python.org/3.13/", "content": "Python 3.13 is the latest stable release."}
+        ],
+    )
+    llm = ScriptedLLM(
+        [
+            Msg(tool_calls=[ToolCall("call_w", "web_search", '{"query": "python latest release"}')], thinking="searching"),
+            Msg(content="The latest stable release is **Python 3.13**."),
+        ]
+    )
+    overrides(client, llm)
+
+    _, events = chat_events(client, token, pid, cid, "What is the latest Python release?")
+    done = done_event(events)
+    assert done is not None
+    assert done["content"] == "The latest stable release is **Python 3.13**."
+
+    tool_events = [ev for ev in events if ev["event"] == "tool"]
+    assert tool_events and tool_events[0]["name"] == "web_search"
+
+    detail = client.get(
+        f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
+    ).json()
+    roles = [m["role"] for m in detail["messages"]]
+    assert roles == ["user", "assistant", "tool", "assistant"]
+    tool_msg = detail["messages"][2]
+    assert tool_msg["tool_name"] == "web_search"
+    assert "Python 3 Release" in tool_msg["content"]
+    assert "https://www.python.org/3.13/" in tool_msg["content"]
+
+
+def test_chat_web_search_failure_does_not_crash_request(client, conv, monkeypatch):
+    token, pid, cid = conv
+    monkeypatch.setattr(settings, "tavily_api_key", "test-key")
+    monkeypatch.setattr("app.tools._tavily_search", lambda query: (_ for _ in ()).throw(RuntimeError("boom")))
+    llm = ScriptedLLM(
+        [
+            Msg(tool_calls=[ToolCall("call_f", "web_search", '{"query": "anything"}')]),
+            Msg(content="I could not reach the web search service."),
+        ]
+    )
+    overrides(client, llm)
+
+    _, events = chat_events(client, token, pid, cid, "hi")
+    assert done_event(events) is not None
+    assert done_event(events)["content"] == "I could not reach the web search service."
+
+    detail = client.get(
+        f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
+    ).json()
+    tool_msg = detail["messages"][2]
+    assert tool_msg["tool_name"] == "web_search"
+    assert tool_msg["content"] == "Error: web search unavailable"
 
 
 # ---------- Chat tool loop (HTTP, scripted FakeLLM) ----------

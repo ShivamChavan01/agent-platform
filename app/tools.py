@@ -3,18 +3,27 @@
 Tools are safe by construction:
 - `calculator` only evaluates arithmetic via the `ast` module — never `eval()`.
 - `search_project_files` reads only the project's own embedded chunks.
+- `web_search` calls the Tavily API over HTTPS (stdlib urllib only, no new
+  dependency) and is only offered to the model when TAVILY_API_KEY is set.
 
 The model may request at most MAX_TOOL_TURNS rounds before the endpoint gives up.
 """
 
 import ast
+import json
 import operator
+import urllib.request
 
+from app.config import settings
 from app.rag import RETRIEVAL_LIMIT, embed_query, search_chunks
 
 MAX_TOOL_TURNS = 4
 
 _MAX_EXPONENT = 512
+
+TAVILY_ENDPOINT = "https://api.tavily.com/search"
+TAVILY_MAX_RESULTS = 4
+TAVILY_TIMEOUT_S = 10
 
 _BINOPS = {
     ast.Add: operator.add,
@@ -70,6 +79,26 @@ def _eval_node(node) -> int | float:
     raise ValueError("Unsupported expression")
 
 
+def _tavily_search(query: str) -> list[dict]:
+    """Call the Tavily search API and return the raw result objects.
+
+    Raises on any transport/API failure so the caller can degrade gracefully.
+    """
+    body = json.dumps({"query": query, "max_results": TAVILY_MAX_RESULTS}).encode()
+    req = urllib.request.Request(
+        TAVILY_ENDPOINT,
+        data=body,
+        headers={
+            "Authorization": f"Bearer {settings.tavily_api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=TAVILY_TIMEOUT_S) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+    return payload.get("results") or []
+
+
 def execute_tool(name: str, arguments: dict, db, project_id, embedder) -> str:
     """Dispatch a tool call to its implementation and return the result text.
 
@@ -91,7 +120,35 @@ def execute_tool(name: str, arguments: dict, db, project_id, embedder) -> str:
         if not chunks:
             return "No relevant content found in the project files."
         return "\n\n---\n\n".join(chunks)
+    if name == "web_search":
+        query = (arguments.get("query") or "").strip()
+        if not query:
+            return "Error: query must be a non-empty string"
+        if not settings.tavily_api_key:
+            return "Error: web search unavailable"
+        try:
+            results = _tavily_search(query)
+        except Exception:
+            return "Error: web search unavailable"
+        if not results:
+            return "No results found for that query."
+        blocks = [
+            f"{r.get('title', '')}\n{r.get('url', '')}\n{r.get('content', '')}"
+            for r in results
+        ]
+        return "\n\n---\n\n".join(blocks)
     raise ValueError(f"Unknown tool: {name}")
+
+
+def available_tools() -> list[dict]:
+    """The tool definitions offered to the model this request.
+
+    Optional-provider tools (web_search) are excluded entirely when their
+    key is unset — never offered as an option that then fails.
+    """
+    if settings.tavily_api_key:
+        return TOOLS
+    return [t for t in TOOLS if t["function"]["name"] != "web_search"]
 
 
 TOOLS = [
@@ -132,6 +189,29 @@ TOOLS = [
                     "query": {
                         "type": "string",
                         "description": "Natural-language search query describing the information to find.",
+                    }
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": (
+                "Search the web for current information (news, docs, prices, anything that "
+                "changes or is outside the uploaded project files) and return the top "
+                f"{TAVILY_MAX_RESULTS} results as title + url + snippet. Use it when the "
+                "answer needs up-to-date or external facts the model may not know."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "A concise search-engine query, e.g. 'latest Python release date'.",
                     }
                 },
                 "required": ["query"],

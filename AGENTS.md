@@ -28,6 +28,13 @@ their agent via an LLM API.
    / `search_query:` prefixes), store vectors in Postgres via pgvector,
    files in Supabase Storage (bucket `project-files`). Chat may retrieve
    top-K matching chunks and inject them as context.
+7. Web search tool (decision made, in scope): a `web_search(query: str)`
+   tool in the same tool-calling loop as calculator / search_project_files,
+   backed by the Tavily API (tavily.com). Gated on the optional `TAVILY_API_KEY`
+   env var — when unset, the tool definition is excluded from the tools list
+   offered to the model entirely (never offered-then-failed). Network/API
+   errors return a graceful "Error: web search unavailable" string to the
+   loop; no new loop logic, respects MAX_TOOL_TURNS.
 
 ## Explicitly OUT OF SCOPE — do not build these unless told otherwise
 - No LangGraph, no multi-agent orchestration, no agent-to-agent routing
