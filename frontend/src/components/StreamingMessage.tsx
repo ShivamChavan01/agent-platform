@@ -1,6 +1,7 @@
 import { MarkdownContent } from "./ChatMessage";
 import type { CanvasArtifact } from "./CanvasPane";
 import { Icon } from "./Icon";
+import { Logo } from "./Logo";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ThinkingPhrases } from "./ThinkingPhrases";
 
@@ -35,7 +36,10 @@ export function StreamingMessage({ draft, onOpenCanvas }: StreamingMessageProps)
               <span className="fallback-badge">fallback · {draft.model}</span>
             ) : (
               <span className="msg-time live-dot">
-                <span className="pulse-dot" /> <ThinkingPhrases compact />
+                <span className="spin-logo">
+                  <Logo size={12} />
+                </span>{" "}
+                <ThinkingPhrases compact />
               </span>
             )}
           </span>

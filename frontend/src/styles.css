@@ -619,12 +619,11 @@ select {
   user-select: none;
 }
 
-.thinking-toggle .pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: pulse 2s infinite;
+.thinking-toggle .spin-logo {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+  animation: spin 3s linear infinite;
 }
 
 .thinking-body {
@@ -658,23 +657,16 @@ select {
   gap: 6px;
 }
 
-.live-dot .pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: pulse 2s infinite;
+.live-dot .spin-logo {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+  animation: spin 3s linear infinite;
 }
 
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2);
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -827,7 +819,8 @@ select {
 .inline-preview iframe {
   display: block;
   width: 100%;
-  height: 440px;
+  height: auto;
+  min-height: 120px;
   border: none;
   background: #fff;
 }

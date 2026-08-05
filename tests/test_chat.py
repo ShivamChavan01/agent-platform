@@ -1,3 +1,5 @@
+import base64
+
 import pytest
 
 from app.llm import get_llm_client
@@ -174,3 +176,131 @@ def test_chat_llm_failure_emits_error_event_and_keeps_user_message(client, proje
         f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
     ).json()
     assert [m["role"] for m in detail["messages"]] == ["user"]
+
+
+def make_pdf(text=b"Shivam Chavan Resume"):
+    """A minimal but valid single-page PDF (correct xref offsets)."""
+    objs = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> >> >>",
+    ]
+    stream = b"BT /F1 12 Tf 72 720 Td (" + text + b") Tj ET"
+    objs.append(b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream")
+    objs.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for i, body in enumerate(objs, start=1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % i + body + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n" % (len(objs) + 1)
+    out += b"0000000000 65535 f \n"
+    for off in offsets[1:]:
+        out += b"%010d 00000 n \n" % off
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
+    return bytes(out)
+
+
+def last_user_message(use_fake_llm):
+    return use_fake_llm.calls[-1][1][-1]["content"]
+
+
+def test_chat_attachment_pdf_is_extracted_not_binary(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat",
+        headers=auth_headers(token),
+        json={
+            "message": "Summarize this file",
+            "attachments": [
+                {"filename": "resume.pdf", "content_b64": base64.b64encode(make_pdf()).decode()}
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    content = last_user_message(use_fake_llm)
+    assert "resume.pdf" in content
+    assert "Shivam Chavan Resume" in content
+    assert "%PDF" not in content
+    assert "could not read" not in content
+
+
+def test_chat_attachment_txt_is_decoded(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat",
+        headers=auth_headers(token),
+        json={
+            "message": "Read this",
+            "attachments": [
+                {"filename": "notes.txt", "content_b64": base64.b64encode(b"hello from notes").decode()}
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    assert "hello from notes" in last_user_message(use_fake_llm)
+
+
+def test_chat_attachment_corrupt_pdf_degrades_gracefully(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat",
+        headers=auth_headers(token),
+        json={
+            "message": "What is in here?",
+            "attachments": [
+                {"filename": "broken.pdf", "content_b64": base64.b64encode(b"not actually a pdf").decode()}
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    content = last_user_message(use_fake_llm)
+    assert "could not read broken.pdf" in content
+    assert "not actually a pdf" not in content
+
+
+def test_chat_attachment_unsupported_type_degrades_gracefully(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat",
+        headers=auth_headers(token),
+        json={
+            "message": "What is in here?",
+            "attachments": [
+                {"filename": "archive.zip", "content_b64": base64.b64encode(b"PK\x03\x04junk").decode()}
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    assert "could not read archive.zip" in last_user_message(use_fake_llm)
+
+
+def test_chat_attachment_text_is_truncated(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = create_conversation(client, token, pid).json()["id"]
+    big = b"word " * 12_000  # ~60KB of plain text
+
+    resp = client.post(
+        f"/projects/{pid}/conversations/{cid}/chat",
+        headers=auth_headers(token),
+        json={
+            "message": "Read this",
+            "attachments": [
+                {"filename": "big.txt", "content_b64": base64.b64encode(big).decode()}
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    content = last_user_message(use_fake_llm)
+    assert "File text truncated" in content
+    assert len(content) < 45_000

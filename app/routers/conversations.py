@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import re
@@ -17,7 +18,9 @@ from app.dependencies import get_current_user
 from app.embeddings import Embedder, get_embedder
 from app.llm import LLMClient, build_chat_messages, get_llm_client
 from app.models import Conversation, Message, UsageEvent, User
+from app.rag import extract_text
 from app.schemas import (
+    AttachmentIn,
     ChatRequest,
     ConversationCreate,
     ConversationDetailOut,
@@ -28,6 +31,32 @@ from app.services import get_owned_conversation, get_owned_project, get_user_usa
 from app.tools import MAX_TOOL_TURNS, TOOLS, execute_tool
 
 router = APIRouter()
+
+MAX_ATTACHMENT_TEXT = 40_000
+
+
+def _attachment_text(att: AttachmentIn) -> str:
+    """Extract readable text from a message-scoped attachment.
+
+    PDFs and DOCX are parsed like uploads (see app.rag.extract_text);
+    plain-text/code files are decoded as UTF-8. Raw binary is never injected
+    into the model context — on any failure the caller gets an honest note
+    the model can report instead of garbage bytes.
+    """
+    try:
+        raw = base64.b64decode(att.content_b64)
+    except Exception as exc:
+        return f"(could not read {att.filename}: invalid base64 — {exc})"
+    try:
+        text = extract_text(att.filename, raw)
+    except HTTPException as exc:
+        return f"(could not read {att.filename}: {exc.detail})"
+    except Exception as exc:
+        return f"(could not read {att.filename}: {exc})"
+    if len(text) > MAX_ATTACHMENT_TEXT:
+        text = text[:MAX_ATTACHMENT_TEXT]
+        text += f"\n[File text truncated — showing the first {MAX_ATTACHMENT_TEXT} characters]"
+    return text
 
 
 @router.post(
@@ -176,15 +205,9 @@ def chat(
     # Inject message-scoped attachments as context (not stored, not embedded)
     user_content = payload.message
     if payload.attachments:
-        import base64
         parts = []
         for att in payload.attachments:
-            try:
-                raw = base64.b64decode(att.content_b64)
-                text = raw.decode("utf-8", errors="replace")
-            except Exception:
-                text = "(binary file — cannot decode)"
-            parts.append(f"--- File: {att.filename} ---\n{text}\n--- End: {att.filename} ---")
+            parts.append(f"--- File: {att.filename} ---\n{_attachment_text(att)}\n--- End: {att.filename} ---")
         file_context = "\n\n".join(parts)
         user_content = f"{file_context}\n\n{user_content}"
 

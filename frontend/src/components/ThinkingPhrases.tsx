@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 
 const PHRASES = [
-  "Reasoning through it",
-  "Weighing the options",
-  "Working it out",
-  "Piecing it together",
-  "Running the numbers",
+  "Thinking",
+  "Working on it",
+  "Considering this",
 ];
 
 const ROTATE_MS = 1750;

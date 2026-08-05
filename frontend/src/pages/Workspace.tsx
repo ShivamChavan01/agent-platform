@@ -4,6 +4,7 @@ import { api, getToken } from "../lib/api";
 import type { Conversation, ConversationDetail, Message, Project, ProjectFile } from "../lib/types";
 import { Sidebar } from "../components/Sidebar";
 import { Header } from "../components/Header";
+import { Logo } from "../components/Logo";
 import { ChatMessage } from "../components/ChatMessage";
 import { Composer } from "../components/Composer";
 import { CanvasPane, type CanvasArtifact } from "../components/CanvasPane";
@@ -34,7 +35,7 @@ export function Workspace() {
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== "undefined" && window.innerWidth >= 768);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState<StreamingDraft | null>(null);
   const [artifactList, setArtifactList] = useState<CanvasArtifact[]>([]);
@@ -110,12 +111,12 @@ export function Workspace() {
     if (!projectId) return;
     const c = await api.post<Conversation>(`/projects/${projectId}/conversations`, {});
     await loadConversations();
-    setSidebarOpen(false);
+    if (window.innerWidth < 768) setSidebarOpen(false);
     navigate(`/app/projects/${projectId}/conversations/${c.id}`, { replace: true });
   };
 
   const selectConversation = (id: string) => {
-    setSidebarOpen(false);
+    if (window.innerWidth < 768) setSidebarOpen(false);
     navigate(`/app/projects/${projectId}/conversations/${id}`);
   };
 
@@ -320,7 +321,9 @@ export function Workspace() {
                     <div className="assistant-body">
                       <div className="thinking-block">
                         <div className="thinking-toggle">
-                          <span className="pulse-dot" />
+                          <span className="spin-logo">
+                            <Logo size={14} />
+                          </span>
                           <ThinkingPhrases />
                         </div>
                       </div>

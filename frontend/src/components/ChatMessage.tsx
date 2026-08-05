@@ -1,4 +1,4 @@
-import { isValidElement, useState } from "react";
+import { isValidElement, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "../lib/types";
@@ -140,7 +140,44 @@ export function ArtifactCard({ block, onOpen }: { block: FencedBlock; onOpen: ()
   );
 }
 
+const PREVIEW_PROBE = `
+<script>
+(() => {
+  "use strict";
+  var send = function () {
+    try {
+      parent.postMessage({ __oap: 1, h: Math.ceil(document.documentElement.scrollHeight) }, "*");
+    } catch (e) {}
+  };
+  send();
+  window.addEventListener("resize", send);
+  if (window.ResizeObserver) new ResizeObserver(send).observe(document.documentElement);
+})();
+</script>`;
+
+function withProbe(code: string): string {
+  if (/<\/body\s*>/i.test(code)) return code.replace(/<\/body\s*>/i, PREVIEW_PROBE + "</body>");
+  return code + PREVIEW_PROBE;
+}
+
 export function InlinePreview({ block, onExpand }: { block: FencedBlock; onExpand: () => void }) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== frame.contentWindow) return;
+      const data = event.data as { __oap?: number; h?: unknown } | null;
+      if (!data || data.__oap !== 1) return;
+      const h = Number(data.h);
+      if (Number.isFinite(h) && h > 0) setHeight(Math.min(h, Math.max(360, window.innerHeight * 0.8)));
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
   return (
     <div className="inline-preview">
       <div className="inline-preview-header">
@@ -159,10 +196,12 @@ export function InlinePreview({ block, onExpand }: { block: FencedBlock; onExpan
         </button>
       </div>
       <iframe
+        ref={frameRef}
         title={`Live preview: ${block.name}`}
         sandbox="allow-scripts"
-        srcDoc={block.code}
+        srcDoc={withProbe(block.code)}
         loading="lazy"
+        style={height ? { height } : undefined}
       />
     </div>
   );
