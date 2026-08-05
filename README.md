@@ -40,7 +40,7 @@ cp .env.example .env
 # compatible `chat.completions` server:
 #   - opencode-go (many models, single key): 
 #       OPENAI_BASE_URL=https://opencode.ai/zen/go/v1
-#       OPENAI_API_KEY=sk-h5J...   (see ~/.local/share/opencode/auth.json)
+#       OPENAI_API_KEY=sk-...   (see ~/.local/share/opencode/auth.json)
 #       DEFAULT_MODEL=deepseek-v4-flash
 #       # full catalog: GET {BASE}/models  (minimax-*, kimi-*, glm-*, qwen-*,
 #       #                                  deepseek-v4-flash/pro, gpt-5.6-luna, ...)
@@ -64,7 +64,7 @@ API docs: http://127.0.0.1:8000/docs
 | `JWT_SECRET` | `change-me-in-prod` | HMAC secret for JWT signing — set a random value |
 | `JWT_ALGORITHM` | `HS256` | JWT algorithm |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Token lifetime |
-| `OPENAI_API_KEY` | (empty) | Provider API key (OpenRouter `sk-or-v1-...` or opencode-go `sk-h5J...`) |
+| `OPENAI_API_KEY` | (empty) | Provider API key (OpenRouter or opencode-go, `sk-...`) |
 | `OPENAI_BASE_URL` | `https://openrouter.ai/api/v1` | LLM endpoint (OpenAI-compatible) |
 | `DEFAULT_MODEL` | `deepseek/deepseek-v4-flash` | Model when a project sets none |
 | `OPENAI_FALLBACK_API_KEY` | (empty) | Secondary provider key — used when the primary fails (rate limit / 5xx) before yielding tokens |
