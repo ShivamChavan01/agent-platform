@@ -179,6 +179,10 @@ def chat(
     history = list(conversation.messages)
     user_message = Message(conversation_id=cid, role="user", content=payload.message)
     db.add(user_message)
+    if not conversation.title:
+        title_text = " ".join(payload.message.split())
+        if title_text:
+            conversation.title = title_text[:40] + ("…" if len(title_text) > 40 else "")
     db.commit()
     db.refresh(user_message)
 

@@ -116,6 +116,50 @@ def test_chat_streams_thinking_then_reply_and_persists(client, project_token, us
     assert all("reasoning" not in (m["content"] or "") for m in detail["messages"])
 
 
+def test_chat_auto_titles_untitled_conversation_from_first_message(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = client.post(
+        f"/projects/{pid}/conversations", headers=auth_headers(token), json={}
+    ).json()["id"]
+
+    chat_events(client, token, pid, cid, "How do I reset my password?")
+    detail = client.get(
+        f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
+    ).json()
+    assert detail["title"] == "How do I reset my password?"
+
+    chat_events(client, token, pid, cid, "a second, different question")
+    detail = client.get(
+        f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
+    ).json()
+    assert detail["title"] == "How do I reset my password?"
+
+
+def test_chat_auto_title_is_truncated(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = client.post(
+        f"/projects/{pid}/conversations", headers=auth_headers(token), json={}
+    ).json()["id"]
+
+    long = "word " * 30
+    chat_events(client, token, pid, cid, long)
+    detail = client.get(
+        f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
+    ).json()
+    assert detail["title"] == long.strip()[:40] + "…"
+
+
+def test_chat_does_not_overwrite_manual_title(client, project_token, use_fake_llm):
+    token, pid = project_token
+    cid = create_conversation(client, token, pid).json()["id"]
+
+    chat_events(client, token, pid, cid, "Some first question")
+    detail = client.get(
+        f"/projects/{pid}/conversations/{cid}", headers=auth_headers(token)
+    ).json()
+    assert detail["title"] == "My Chat"
+
+
 def test_chat_sends_system_prompt_model_and_history(client, project_token, use_fake_llm):
     token, pid = project_token
     cid = create_conversation(client, token, pid).json()["id"]

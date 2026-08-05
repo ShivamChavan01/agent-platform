@@ -53,7 +53,8 @@ def test_tool_definitions_are_consistent():
 # ---------- web_search (Tavily) ----------
 
 
-def test_web_search_excluded_from_offered_tools_without_api_key():
+def test_web_search_excluded_from_offered_tools_without_api_key(monkeypatch):
+    monkeypatch.setattr(settings, "tavily_api_key", "")
     assert {t["function"]["name"] for t in available_tools()} == {
         "calculator",
         "search_project_files",
@@ -87,7 +88,8 @@ def test_web_search_empty_query_returns_error():
     assert result == "Error: query must be a non-empty string"
 
 
-def test_web_search_no_api_key_returns_error():
+def test_web_search_no_api_key_returns_error(monkeypatch):
+    monkeypatch.setattr(settings, "tavily_api_key", "")
     result = execute_tool("web_search", {"query": "python"}, db=None, project_id=None, embedder=None)
     assert result == "Error: web search unavailable"
 
