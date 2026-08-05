@@ -179,7 +179,7 @@ export function Workspace() {
       await streamChat(projectId, cid, text, encoded);
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
-      if (!d.title) {
+      if (d.title) {
         await loadConversations();
       }
     } catch (err) {
