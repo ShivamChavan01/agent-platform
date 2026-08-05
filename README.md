@@ -8,6 +8,8 @@ Built as a take-home assignment — deliberately minimal: auth, projects,
 conversations, chat with live-streamed reasoning, automatic provider
 fallback, file upload + RAG, canvas preview, usage metering.
 
+Live demo: https://openagent.up.railway.app (public repo, auto-deploys from `main`)
+
 ## Tech stack
 
 - Python 3.11+, FastAPI (SSE streaming chat)
@@ -145,7 +147,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-89 tests: auth, project CRUD + isolation, conversations, chat prompt
+119 tests: auth, project CRUD + isolation, conversations, chat prompt
 construction, SSE event streaming, LLM provider fallback, tool calling
 (calculator / search_project_files), upload + RAG, usage metering — fake LLM
 and fake storage via dependency injection, no network needed.
