@@ -1430,6 +1430,7 @@ html[data-theme="light"] .input-box {
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 500;
+  margin-left: auto;
 }
 
 .create-btn:hover {
@@ -1984,7 +1985,7 @@ html[data-theme="light"] .input-box {
   .search-box {
     flex: 1;
     width: auto;
-    min-width: 0;
+    min-width: 120px;
   }
   .create-btn {
     padding: 7px 12px;

@@ -108,7 +108,6 @@ export function Dashboard() {
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
-            <div style={{ flex: 1 }} />
             <button className="create-btn" onClick={() => setCreateOpen(true)}>
               <Icon name="plus" size={14} />
               <span className="create-btn-label">New Project</span>
