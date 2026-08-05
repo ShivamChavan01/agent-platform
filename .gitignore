@@ -25,3 +25,8 @@ htmlcov/
 # Logs
 *.log
 .gstack/
+
+# Internal agent working notes — not for public repo
+MEMORY.md
+PROGRESS.md
+CONTEXT.md
