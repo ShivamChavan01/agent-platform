@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Icon } from "./Icon";
+import { Logo } from "./Logo";
 
 interface ThinkingBlockProps {
   text: string;
@@ -22,7 +22,9 @@ export function ThinkingBlock({ text }: ThinkingBlockProps) {
           }
         }}
       >
-        {showThinking ? <Icon name="chevron-down" size={12} /> : <Icon name="chevron-right" size={12} />}
+        <span className="spin-logo">
+          <Logo size={14} />
+        </span>
         <span>Thinking</span>
       </div>
       {showThinking && <pre className="thinking-body">{text}</pre>}

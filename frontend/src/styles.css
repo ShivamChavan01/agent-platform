@@ -459,6 +459,17 @@ select {
   flex-shrink: 0;
 }
 
+/* Assistant avatar: the openagent logo, slowly rotating */
+.msg-avatar.logo-avatar {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+}
+
+.msg-avatar.logo-avatar svg {
+  animation: spin 3s linear infinite;
+}
+
 .assistant-body {
   flex: 1;
   min-width: 0;

@@ -27,7 +27,9 @@ interface StreamingMessageProps {
 export function StreamingMessage({ draft, onOpenCanvas }: StreamingMessageProps) {
   return (
     <div className="assistant-msg">
-      <div className="msg-avatar">AI</div>
+      <div className="msg-avatar logo-avatar">
+        <Logo size={18} />
+      </div>
       <div className="assistant-body">
         <div className="assistant-header">
           <span className="agent-name">openagent</span>

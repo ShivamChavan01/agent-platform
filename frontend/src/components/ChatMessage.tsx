@@ -5,6 +5,7 @@ import type { Message } from "../lib/types";
 import type { CanvasArtifact } from "./CanvasPane";
 import { timeAgo } from "../lib/time";
 import { Icon } from "./Icon";
+import { Logo } from "./Logo";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { deriveFileName, isPreviewable, isSubstantialArtifact, toCanvasArtifact, type FencedBlock } from "../lib/artifacts";
 
@@ -42,7 +43,9 @@ export function ChatMessage({ message, onOpenCanvas }: ChatMessageProps) {
 
   return (
     <div className="assistant-msg">
-      <div className="msg-avatar">AI</div>
+      <div className="msg-avatar logo-avatar">
+        <Logo size={18} />
+      </div>
       <div className="assistant-body">
         <div className="assistant-header">
           <span className="agent-name">openagent</span>

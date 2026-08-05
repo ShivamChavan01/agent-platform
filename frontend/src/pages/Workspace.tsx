@@ -343,7 +343,9 @@ export function Workspace() {
                 {draft && <StreamingMessage draft={draft} onOpenCanvas={openCanvas} />}
                 {sending && !draft && (
                   <div className="assistant-msg">
-                    <div className="msg-avatar">AI</div>
+                    <div className="msg-avatar logo-avatar">
+                      <Logo size={18} />
+                    </div>
                     <div className="assistant-body">
                       <div className="thinking-block">
                         <div className="thinking-toggle">
