@@ -224,12 +224,12 @@ export function CodeBlock({ lang, code, onOpenCanvas }: { lang: string; code: st
     <div className="code-block">
       <div className="code-header">
         <span className="code-lang">{lang}</span>
-        <button className="code-header-btn" onClick={copy}>
+        <button className="code-header-btn" onClick={copy} title="Copy code to clipboard">
           <Icon name="copy" size={12} />
           {copied ? "Copied" : "Copy"}
         </button>
         {onOpenCanvas && (
-          <button className="code-header-btn" onClick={() => onOpenCanvas({ code, lang })}>
+          <button className="code-header-btn" onClick={() => onOpenCanvas({ code, lang })} title="Open code in Canvas">
             <Icon name="sidebar" size={12} />
             Canvas
           </button>

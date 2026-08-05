@@ -4,11 +4,13 @@ import { useAuth } from "../App";
 import { ApiError } from "../lib/api";
 import { Icon } from "../components/Icon";
 import { Logo } from "../components/Logo";
+import { useToast } from "../components/Toast";
 
 type Mode = "signin" | "signup";
 
 export function Login() {
   const { authed, login, register } = useAuth();
+  const { toast } = useToast();
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -32,7 +34,9 @@ export function Login() {
         await register(name.trim() || undefined, email, password);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong");
+      const message = err instanceof ApiError ? err.message : "Something went wrong";
+      setError(message);
+      toast(message, "error");
     } finally {
       setBusy(false);
     }
@@ -123,6 +127,7 @@ export function Login() {
                 type="button"
                 className="password-toggle"
                 onClick={() => setShowPassword((v) => !v)}
+                title={showPassword ? "Hide password" : "Show password"}
               >
                 <Icon name={showPassword ? "eyeOff" : "eye"} size={16} />
               </button>

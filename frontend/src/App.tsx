@@ -6,6 +6,7 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Workspace } from "./pages/Workspace";
 import { Settings } from "./pages/Settings";
+import { ToastProvider } from "./components/Toast";
 
 const AuthContext = createContext<AuthState>({
   user: null,
@@ -80,7 +81,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
+      <ToastProvider>
+        <Routes>
         <Route path="/" element={<Navigate to="/app" replace />} />
         <Route path="/login" element={<Login />} />
         <Route
@@ -116,7 +118,8 @@ export default function App() {
           }
         />
         <Route path="*" element={<Navigate to="/app" replace />} />
-      </Routes>
+        </Routes>
+      </ToastProvider>
     </AuthProvider>
   );
 }

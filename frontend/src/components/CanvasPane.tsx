@@ -75,7 +75,7 @@ export function CanvasPane({ artifacts, activeName, onClose }: CanvasPaneProps) 
           {artifact.lang}
         </span>
         <div style={{ flex: 1 }} />
-        <button className="code-header-btn" onClick={copy}>
+        <button className="code-header-btn" onClick={copy} title="Copy code to clipboard">
           <Icon name="copy" size={12} />
           {copied ? "Copied" : "Copy"}
         </button>

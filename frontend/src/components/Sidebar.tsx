@@ -88,7 +88,7 @@ export function Sidebar({
             <Logo size={24} />
             <span className="sidebar-brand-name">openagent</span>
           </div>
-          <Button variant="secondary" className="new-chat-btn gap-1.5 w-full justify-start" onClick={onNewChat}>
+          <Button variant="secondary" className="new-chat-btn gap-1.5 w-full justify-start" onClick={onNewChat} title="Start a new conversation">
             <Plus className="h-3.5 w-3.5" />
             New Chat
           </Button>

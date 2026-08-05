@@ -7,16 +7,29 @@ import { NavSidebar } from "../components/NavSidebar";
 import { Header } from "../components/Header";
 import { Icon } from "../components/Icon";
 import { MODEL_CATALOG } from "../components/Sidebar";
+import { useToast } from "../components/Toast";
 import { useAuth } from "../App";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [prefs, setPrefs] = useState<Preferences>({});
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -26,10 +39,12 @@ export function Dashboard() {
       ]);
       setProjects(ps);
       setPrefs(prefsRes);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to load projects", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     void load();
@@ -38,6 +53,21 @@ export function Dashboard() {
   const logoutNow = () => {
     logout();
     navigate("/login");
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    try {
+      await api.delete(`/projects/${deleteTarget.id}`);
+      toast(`Deleted project "${deleteTarget.name}"`, "success");
+      setDeleteTarget(null);
+      await load();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to delete project", "error");
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   const filtered = projects.filter((p) =>
@@ -93,10 +123,7 @@ export function Dashboard() {
                     key={p.id}
                     project={p}
                     onOpen={() => navigate(`/app/projects/${p.id}`)}
-                    onDelete={async () => {
-                      await api.delete(`/projects/${p.id}`);
-                      await load();
-                    }}
+                    onDelete={() => setDeleteTarget(p)}
                   />
                 ))}
               </div>
@@ -115,6 +142,24 @@ export function Dashboard() {
           }}
         />
       )}
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete project</DialogTitle>
+            <DialogDescription>
+              Delete "{deleteTarget?.name}"? This permanently removes the project, all of its
+              conversations, and uploaded files. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => void confirmDeleteProject()} disabled={deleteBusy}>
+              {deleteBusy ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -138,6 +183,7 @@ function ProjectCard({ project, onOpen, onDelete }: { project: Project; onOpen: 
       </div>
       <div
         className="project-card-menu"
+        title="Project options"
         onClick={(e) => {
           e.stopPropagation();
           setMenuOpen((v) => !v);
@@ -155,9 +201,7 @@ function ProjectCard({ project, onOpen, onDelete }: { project: Project; onOpen: 
             className="profile-dropdown-item danger"
             onClick={() => {
               setMenuOpen(false);
-              if (window.confirm(`Delete project "${project.name}"? This removes all its conversations and files.`)) {
-                void onDelete();
-              }
+              onDelete();
             }}
           >
             <Icon name="trash" size={14} />
@@ -184,6 +228,7 @@ function CreateProjectModal({
   const [model, setModel] = useState(defaultModel || MODEL_CATALOG[0].id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,7 +245,9 @@ function CreateProjectModal({
         system_prompt: systemPrompt.trim() || undefined,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create project");
+      const message = err instanceof Error ? err.message : "Failed to create project";
+      setError(message);
+      toast(message, "error");
       setBusy(false);
     }
   };

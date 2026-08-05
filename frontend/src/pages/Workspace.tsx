@@ -10,6 +10,7 @@ import { Composer } from "../components/Composer";
 import { CanvasPane, type CanvasArtifact } from "../components/CanvasPane";
 import { StreamingMessage, type StreamingDraft, type ToolCallUI } from "../components/StreamingMessage";
 import { ThinkingPhrases } from "../components/ThinkingPhrases";
+import { useToast } from "../components/Toast";
 import { useAuth } from "../App";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function Workspace() {
   const { projectId, conversationId } = useParams<{ projectId: string; conversationId: string }>();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -99,7 +101,11 @@ export function Workspace() {
         setProject(p);
         setFiles(fs);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load project"))
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "Failed to load project";
+        setError(message);
+        toast(message, "error");
+      })
       .then(() => loadConversations());
   }, [projectId, loadConversations]);
 
@@ -199,7 +205,9 @@ export function Workspace() {
     } catch (err) {
       // Keep the pending attachments so the user can retry
       setAttachments(currentAttachments);
-      setError(err instanceof Error ? err.message : "Chat failed");
+      const message = err instanceof Error ? err.message : "Chat failed";
+      setError(message);
+      toast(message, "error");
       const d = await api.get<ConversationDetail>(`/projects/${projectId}/conversations/${cid}`);
       setDetail(d);
     } finally {
