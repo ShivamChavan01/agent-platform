@@ -301,13 +301,17 @@ export function Workspace() {
           <div className="chat-pane">
             <div className="chat-scroll" ref={scrollRef}>
               <div className="chat-scroll-inner">
-                {!activeId && (
+                {(!activeId || lastMessages.length === 0) && !draft && !sending && (
                   <div className="empty-state">
                     <div className="empty-state-icon">
                       <Logo size={48} />
                     </div>
                     <h3>{project?.name}</h3>
-                    <p>{project?.description || "Start a new conversation or select one from the sidebar."}</p>
+                    <p>
+                      {activeId
+                        ? "No messages yet. Send your first message to start the conversation."
+                        : project?.description || "Start a new conversation or select one from the sidebar."}
+                    </p>
                   </div>
                 )}
                 {lastMessages.map((m) => (
