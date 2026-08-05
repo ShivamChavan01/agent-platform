@@ -2,10 +2,11 @@ import { useState } from "react";
 
 interface ThinkingBlockProps {
   text: string;
+  defaultOpen?: boolean;
 }
 
-export function ThinkingBlock({ text }: ThinkingBlockProps) {
-  const [showThinking, setShowThinking] = useState(false);
+export function ThinkingBlock({ text, defaultOpen }: ThinkingBlockProps) {
+  const [showThinking, setShowThinking] = useState(defaultOpen ?? false);
 
   return (
     <div className="thinking-block">

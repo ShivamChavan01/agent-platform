@@ -45,7 +45,7 @@ export function StreamingMessage({ draft, onOpenCanvas }: StreamingMessageProps)
           </span>
         </div>
 
-        {draft.thinking && <ThinkingBlock text={draft.thinking} />}
+        {draft.thinking && <ThinkingBlock text={draft.thinking} defaultOpen />}
 
         {draft.tools.map((t) => (
           <div className="tool-card" key={t.id}>
