@@ -1,0 +1,60 @@
+#!/bin/sh
+# Pre-commit secret guard.
+#
+# Blocks accidental commits of:
+#   1. Secret files (.env and any .env.* variant, except .env.example)
+#   2. Staged content matching high-signal credential patterns
+#
+# This hook is only active when core.hooksPath is set to .githooks, e.g.:
+#   git config core.hooksPath .githooks
+# It is also safe to run manually:  ./.githooks/pre-commit
+
+set -eu
+
+# High-signal secret patterns. Minimum lengths are chosen so the placeholders
+# in docs/.env.example (sk-..., eyJ...) do NOT match.
+PATTERNS='sk-[A-Za-z0-9_-]{16,}
+sk-or-v1-[A-Za-z0-9_-]{16,}
+tvly-[A-Za-z0-9_-]{16,}
+AIza[0-9A-Za-z_-]{20,}
+eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}
+BEGIN (RSA|EC|OPENSSH|DSA|PGP) PRIVATE[ ]KEY'
+
+fail=0
+
+# 1. Block secret filenames.
+staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+bad_files=$(printf '%s\n' "$staged_files" \
+    | grep -E '(^|/)\.env(\..*)?$' \
+    | grep -vE '\.env\.example$' || true)
+
+if [ -n "$bad_files" ]; then
+    echo "Blocked: secret file(s) staged for commit:" >&2
+    printf '%s\n' "$bad_files" | sed 's/^/  /' >&2
+    echo "  Unstage with: git rm --cached <file>   (or git restore --staged <file>)" >&2
+    fail=1
+fi
+
+# 2. Block secret content in added lines.
+while IFS= read -r pattern; do
+    [ -z "$pattern" ] && continue
+    hits=$(git diff --cached --unified=0 \
+        | grep -E '^\+[^+]' \
+        | grep -nE -e "$pattern" || true)
+    if [ -n "$hits" ]; then
+        echo "Blocked: staged content matches secret pattern: $pattern" >&2
+        printf '%s\n' "$hits" | sed 's/^/  /' | head -20 >&2
+        fail=1
+    fi
+done <<EOF
+$PATTERNS
+EOF
+
+if [ "$fail" -ne 0 ]; then
+    echo "" >&2
+    echo "If this is a false positive, unstage (git restore --staged) and fix the" >&2
+    echo "file, or override deliberately with:  git commit --no-verify" >&2
+    exit 1
+fi
+
+exit 0

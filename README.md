@@ -128,6 +128,17 @@ npm run dev        # http://localhost:5173 (proxies /api and SSE to :8000)
 
 API docs (FastAPI): http://127.0.0.1:8000/docs
 
+### Pre-commit secret guard
+
+A pre-commit hook blocks accidental commits of `.env` files and credential
+strings (API keys, JWTs, private keys). Enable it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Override deliberately (and rarely) with `git commit --no-verify`.
+
 ### Choosing an LLM provider
 
 The chat endpoint talks to any OpenAI-compatible `chat.completions` server —
