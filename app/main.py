@@ -17,9 +17,10 @@ _FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 _FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
 
 _KEEP_ALIVE_INTERVAL_S = 600
-# Ping only during waking hours (IST, no DST) — nobody tests at night, so the
-# instance is allowed to sleep then. Saves ~1/3 of the 750 free instance
-# hours/month; the first visitor after the window eats one cold start.
+# Ping only during working hours (IST, no DST): Mon-Fri, 07:00-23:00. Nights
+# and weekends the instance is allowed to sleep — nobody is testing then.
+# Saves ~half of the 750 free instance hours/month; the first visitor after
+# a sleep window eats one cold start.
 _KEEP_ALIVE_IST_START = 7   # 07:00 IST
 _KEEP_ALIVE_IST_END = 23    # 23:00 IST
 
@@ -28,9 +29,12 @@ def _error_response(status_code: int, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"error": message})
 
 
-def _ist_hour() -> int:
-    utc_hour = time.gmtime().tm_hour
-    return (utc_hour + 5) % 24 if time.gmtime().tm_min < 30 else (utc_hour + 6) % 24
+def _ist_now() -> tuple[int, int]:
+    """(weekday, hour) in IST. weekday: 0=Mon .. 6=Sun."""
+    g = time.gmtime()
+    total = g.tm_hour * 60 + g.tm_min + 330  # UTC + 5:30
+    day_shift = total // 1440
+    return (g.tm_wday + day_shift) % 7, (total % 1440) // 60
 
 
 async def _keep_alive_loop() -> None:
@@ -42,12 +46,16 @@ async def _keep_alive_loop() -> None:
     log = logging.getLogger("uvicorn.error")
     url = os.environ["RENDER_EXTERNAL_URL"].rstrip("/") + "/health"
     log.info(
-        "keep-alive enabled: pinging %s every %ss between %02d:00-%02d:00 IST",
+        "keep-alive enabled: pinging %s every %ss, Mon-Fri %02d:00-%02d:00 IST",
         url, _KEEP_ALIVE_INTERVAL_S, _KEEP_ALIVE_IST_START, _KEEP_ALIVE_IST_END,
     )
     while True:
-        hour = _ist_hour()
-        if not (_KEEP_ALIVE_IST_START <= hour < _KEEP_ALIVE_IST_END):
+        wday, hour = _ist_now()
+        in_window = (
+            wday < 5  # Monday-Friday
+            and _KEEP_ALIVE_IST_START <= hour < _KEEP_ALIVE_IST_END
+        )
+        if not in_window:
             await asyncio.sleep(_KEEP_ALIVE_INTERVAL_S)
             continue
         await asyncio.sleep(_KEEP_ALIVE_INTERVAL_S)
