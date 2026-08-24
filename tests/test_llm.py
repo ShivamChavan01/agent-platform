@@ -172,6 +172,26 @@ def test_stream_routes_free_models_to_paid_endpoint_when_free_attempt_fails():
     assert events[-1]["provider"] == "fallback"
 
 
+def test_free_suffix_model_on_primary_endpoint_stays_primary():
+    called = []
+
+    def primary_create(**kw):
+        called.append(("primary", kw["model"]))
+        return _Stream([_Chunk(content="ox reply")])
+
+    def fallback_create(**kw):
+        called.append(("fallback", kw["model"]))
+        return _Stream([_Chunk(content="should not happen")])
+
+    llm = _client_with_fallbacks(primary_create, fallback_create)
+    events = list(llm.stream("ox-alpha-free", [{"role": "user", "content": "hi"}]))
+
+    # ox-alpha-free ends in -free but lives on the primary (Go) endpoint.
+    assert called == [("primary", "ox-alpha-free")]
+    assert events[-1]["provider"] == "primary"
+    assert events[-1]["content"] == "ox reply"
+
+
 def test_non_retryable_error_is_not_retried_on_fallback():
     called = []
 

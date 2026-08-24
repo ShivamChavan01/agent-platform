@@ -8,6 +8,10 @@ from app.config import settings
 
 MAX_HISTORY_MESSAGES = 50
 
+# Model ids that end in "-free" but live on the PRIMARY (Go) endpoint, not on
+# the fallback /zen/v1 endpoint — the suffix routing rule must skip them.
+_FREE_SUFFIX_ON_PRIMARY = frozenset({"ox-alpha-free"})
+
 # Event protocol yielded by LLMClient.stream():
 #   {"type": "thinking", "text": str}   live reasoning delta
 #   {"type": "content", "text": str}    live answer delta
@@ -88,7 +92,11 @@ class LLMClient:
         text from the failing provider).
         """
         attempts: list[tuple[OpenAI, str, str]] = []
-        if model.endswith("-free") and self._fallback_api_key:
+        if (
+            model.endswith("-free")
+            and model not in _FREE_SUFFIX_ON_PRIMARY
+            and self._fallback_api_key
+        ):
             # Free-tier model ids only exist on the fallback endpoint
             # (opencode /zen/v1), never on the primary (/zen/go/v1) — route
             # them there first, paid endpoint as the safety net.

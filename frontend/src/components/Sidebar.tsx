@@ -24,6 +24,7 @@ import { Logo } from "./Logo";
 
 export const MODEL_CATALOG: ModelOption[] = [
   { id: "deepseek-v4-flash", label: "DeepSeek V4 Flash", description: "Fastest inference, best for code generation and analysis" },
+  { id: "ox-alpha-free", label: "ox-alpha Free", description: "Free reasoning model via OpenCode Zen Go" },
   { id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", description: "Stronger reasoning for complex architecture decisions" },
   { id: "minimax-m3", label: "MiniMax M3", description: "Latest MiniMax flagship model" },
   { id: "minimax-m2.5", label: "MiniMax M2.5", description: "Balanced MiniMax model" },
