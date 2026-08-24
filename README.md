@@ -1,3 +1,13 @@
+---
+title: Agent Platform
+emoji: 🤖
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 8000
+pinned: false
+---
+
 # openagent — Multi-Tenant Chatbot Platform
 
 A production-shaped, multi-tenant chatbot platform. Users register, create
@@ -51,9 +61,10 @@ of 119 tests, and a live public deployment.
 ### Document answers (RAG)
 - **Upload files to a project** — plain text formats (txt/md/csv/json/code)
   plus PDF and DOCX, up to 10 MB each.
-- **Local embedding pipeline** — files are extracted, chunked (1000 chars,
-  150 overlap), embedded with **nomic-embed-text-v1.5** (768-dim, runs fully
-  locally) and stored as pgvector vectors in Postgres.
+- **Embedding pipeline** — files are extracted, chunked (1000 chars,
+  150 overlap), embedded with the **hosted Gemini API**
+  (`gemini-embedding-001`, 768-dim, free tier) and stored as pgvector
+  vectors in Postgres.
 - **Retrieval-augmented generation** — at chat time the model searches the
   project's top-4 nearest chunks (L2 distance) and grounds its answer in the
   actual document text. Scoped per project — files never leak across projects.
@@ -88,7 +99,7 @@ of 119 tests, and a live public deployment.
 | Database | **PostgreSQL** (Supabase), pgvector for embeddings |
 | Auth | **JWT** (python-jose) + **bcrypt** password hashing (passlib) |
 | LLM | official **`openai` SDK** → `chat.completions` against any OpenAI-compatible endpoint |
-| Embeddings | **nomic-embed-text-v1.5** (local, 768-dim) via sentence-transformers |
+| Embeddings | hosted **Gemini API** (`gemini-embedding-001`, 768-dim, free tier) |
 | Storage | **Supabase Storage** (`project-files` bucket), local dir fallback |
 | Web search | **Tavily API** (optional, gated) |
 | Frontend | **React 18**, TypeScript, **Vite**, Tailwind CSS, React Router, react-markdown |
@@ -157,6 +168,14 @@ the provider is env-swappable with zero code changes.
   DEFAULT_MODEL=deepseek/deepseek-v4-flash
   ```
 
+The optional fallback defaults to **OpenCode Zen free models**
+(`https://opencode.ai/zen/v1`, model `deepseek-v4-flash-free`) — when the
+primary is down or rate-limited the demo keeps working for free. If
+`OPENAI_FALLBACK_API_KEY` is empty, the primary `OPENAI_API_KEY` is reused.
+Other free fallback models: `big-pickle`, `mimo-v2.5-free`, `hy3-free`,
+`laguna-s-2.1-free`, `nemotron-3-ultra-free`, `nemotron-3.5-lightning-free`
+(Zen key from https://opencode.ai/auth; free models cost $0).
+
 ### Configuration reference
 
 | Variable | Default | Purpose |
@@ -168,12 +187,12 @@ the provider is env-swappable with zero code changes.
 | `OPENAI_API_KEY` | (empty) | Primary provider key (opencode-go or OpenRouter, `sk-...`) |
 | `OPENAI_BASE_URL` | `https://openrouter.ai/api/v1` | Primary LLM endpoint (OpenAI-compatible) |
 | `DEFAULT_MODEL` | `deepseek/deepseek-v4-flash` | Model used when a project sets none |
-| `OPENAI_FALLBACK_API_KEY` | (empty) | Secondary provider key — used when the primary fails before yielding tokens |
-| `OPENAI_FALLBACK_BASE_URL` | `https://openrouter.ai/api/v1` | Fallback endpoint |
-| `OPENAI_FALLBACK_MODEL` | `deepseek/deepseek-v4-flash` | Fallback model id (OpenRouter-prefixed when falling back from an unprefixed catalog) |
-| `EMBEDDING_MODEL` | `nomic-ai/nomic-embed-text-v1.5` | Local embedding model (768-dim) |
-| `EMBEDDING_DIM` | `768` | Vector dimension (must match the model) |
-| `PRELOAD_EMBEDDER` | `true` | Preload the embedder at startup (first lazy load ≈ 2.5 min). Set `false` in tests |
+| `OPENAI_FALLBACK_API_KEY` | (empty) | Secondary provider key — when empty, the primary `OPENAI_API_KEY` is reused |
+| `OPENAI_FALLBACK_BASE_URL` | `https://opencode.ai/zen/v1` | Fallback endpoint (default: OpenCode Zen free models) |
+| `OPENAI_FALLBACK_MODEL` | `deepseek-v4-flash-free` | Fallback model id (must exist on the fallback provider) |
+| `GEMINI_API_KEY` | (empty) | Gemini API key for embeddings (free tier, aistudio.google.com/apikey) |
+| `GEMINI_EMBED_MODEL` | `gemini-embedding-001` | Hosted embedding model |
+| `EMBED_DIM` | `768` | Vector dimension (must match the pgvector column) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | (empty) | Enable Supabase Storage (bucket `project-files`); empty → local `storage/` dir |
 | `SUPABASE_STORAGE_BUCKET` | `project-files` | Storage bucket name |
 | `MAX_UPLOAD_BYTES` | `10485760` | Upload size cap (10 MB) |
@@ -194,11 +213,9 @@ the provider is env-swappable with zero code changes.
 
 The Dockerfile is a multi-stage build:
 1. Node stage builds the React frontend (`npm run build`).
-2. Python stage installs **CPU-only torch first** from the PyPI CPU index (the
-   default CUDA wheel is multi-GB and useless without a GPU), installs
-   requirements, and **downloads the embedding model into the HF cache at
-   build time** — so the runtime never makes network calls and the first
-   request of a fresh container is fast.
+2. Python stage installs requirements only — there is **no torch and no
+   model download**: embeddings are hosted Gemini API calls at runtime
+   (`GEMINI_API_KEY`). The image is small and cold starts are fast.
 3. The final image serves the API and the built frontend on the same port.
 
 ```bash
@@ -216,12 +233,6 @@ python -m scripts.migrate_reasoning  # idempotent: messages.reasoning
 ```
 
 Every push to `main` triggers an automatic Railway deploy.
-
-> **Heavy deps on a tight disk (local dev)?** The embedding stack
-> (torch + sentence-transformers ≈ 1.5 GB + model cache ≈ 0.6 GB) can live on
-> a separate partition with redirected caches, e.g.
-> `HF_HOME=/opt/hf-cache PIP_CACHE_DIR=/opt/pip-cache`. Deployment platforms
-> build their own environment anyway.
 
 ---
 
@@ -320,7 +331,7 @@ app/
   dependencies.py    get_current_user (Bearer token)
   llm.py             LLM client — streaming, reasoning effort, provider fallback
   services.py        ownership helpers, usage aggregation
-  embeddings.py      nomic-embed-text-v1.5 singleton (task-prefix aware)
+  embeddings.py      Gemini API embedder (RETRIEVAL_DOCUMENT / RETRIEVAL_QUERY)
   storage.py         Supabase Storage / local-dir boundary
   rag.py             text extraction, chunking, embedding, pgvector search
   tools.py           calculator + search_project_files + web_search (Tavily)

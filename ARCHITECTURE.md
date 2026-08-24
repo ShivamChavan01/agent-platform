@@ -26,7 +26,7 @@ deployment topology.
     │              │   └──────┬───────┘          │                    │
     │              │          │ fallback         │                    │
     │              │   ┌──────┴───────┐           │                    │
-    │              │   │  OpenRouter  │  retry   │                    │
+    │              │   │ Zen free mdl │  retry   │                    │
     │              │   └──────────────┘          │                    │
     │              │   tools: calculator (local),│                    │
     │              │          search_project_files (pgvector),        │
@@ -105,8 +105,12 @@ by env vars:
   OpenAI-compatible endpoint that fronts a large catalog of models (DeepSeek
   V4 Flash/Pro, MiniMax, Kimi, GLM, Qwen, Mimo, Grok, GPT-5.6 Luna, HY3).
   Default model: `deepseek-v4-flash`.
-- **Fallback:** **OpenRouter** (`https://openrouter.ai/api/v1`), default
-  fallback model `deepseek/deepseek-v4-flash`.
+- **Fallback:** **OpenCode Zen free models** (`https://opencode.ai/zen/v1`),
+  default fallback model `deepseek-v4-flash-free` — the demo keeps working
+  for free when the primary is down/rate-limited. When
+  `OPENAI_FALLBACK_API_KEY` is empty the primary key is reused; a separate
+  provider (e.g. OpenRouter) can be configured instead via the `OPENAI_FALLBACK_*`
+  vars.
 
 This is exactly the "OpenRouter Completion API / any LLM service of choice"
 option from the assignment brief — implemented without locking the app to a

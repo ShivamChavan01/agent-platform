@@ -17,19 +17,19 @@ class Settings(BaseSettings):
 
     # Optional secondary provider: used automatically when the primary LLM
     # call fails (rate limit / connection / 5xx) before any token is yielded.
-    # The fallback model id must exist on the fallback provider (e.g. the
-    # OpenRouter-prefixed id when falling back from an unprefixed catalog).
+    # The fallback model id must exist on the fallback provider. Defaults to
+    # OpenCode Zen free models (deepseek-v4-flash-free, big-pickle, ...) so
+    # the demo keeps working for free when the paid primary is down/limited.
     openai_fallback_api_key: str = ""
-    openai_fallback_base_url: str = "https://openrouter.ai/api/v1"
-    openai_fallback_model: str = "deepseek/deepseek-v4-flash"
+    openai_fallback_base_url: str = "https://opencode.ai/zen/v1"
+    openai_fallback_model: str = "deepseek-v4-flash-free"
 
-    embed_model: str = "nomic-ai/nomic-embed-text-v1.5"
+    # Embeddings are produced by the hosted Gemini API (free tier) — no local
+    # model. Key optional at boot; upload/search fail with a clear error when
+    # it is missing.
+    gemini_api_key: str = ""
+    gemini_embed_model: str = "gemini-embedding-001"
     embed_dim: int = 768
-
-    # Load the embedding model during FastAPI lifespan startup instead of
-    # lazily on first request (first load ~2.5 min — makes the first real
-    # request of a fresh container look broken). Tests set this to false.
-    preload_embedder: bool = True
 
     supabase_url: str = ""
     supabase_service_role_key: str = ""

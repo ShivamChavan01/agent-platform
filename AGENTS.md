@@ -24,10 +24,10 @@ their agent via an LLM API.
    calls OpenAI with the project's system_prompt + history, saves and
    returns the reply
 6. File upload + RAG (decision made, in scope): upload .txt/.pdf to a
-   project, chunk + embed (nomic-embed-text-v1.5, dim 768, `search_document:`
-   / `search_query:` prefixes), store vectors in Postgres via pgvector,
-   files in Supabase Storage (bucket `project-files`). Chat may retrieve
-   top-K matching chunks and inject them as context.
+   project, chunk + embed (hosted Gemini API, gemini-embedding-001, dim 768,
+   RETRIEVAL_DOCUMENT / RETRIEVAL_QUERY task types), store vectors in
+   Postgres via pgvector, files in Supabase Storage (bucket `project-files`).
+   Chat may retrieve top-K matching chunks and inject them as context.
 7. Web search tool (decision made, in scope): a `web_search(query: str)`
    tool in the same tool-calling loop as calculator / search_project_files,
    backed by the Tavily API (tavily.com). Gated on the optional `TAVILY_API_KEY`
@@ -65,15 +65,10 @@ their agent via an LLM API.
   import in `app/` must be recorded there in the same change. No ad hoc
   `pip install` into a local venv without updating the manifest (the
   project `.venv` already diverged this way once and could not boot).
-- Dockerfile must install CPU-only torch FIRST from the PyPI CPU index
-  (`pip install torch --index-url https://download.pytorch.org/whl/cpu`)
-  before `pip install -r requirements.txt`. The default CUDA wheel is
-  multi-GB and useless on Railway (no GPU) — smaller image, faster build.
-- Embedding model must be downloaded at BUILD time into the HF cache
-  (`snapshot_download("nomic-ai/nomic-embed-text-v1.5")`) so the runtime
-  never makes network calls (embeddings must work offline in the demo).
-- Embedding model must be PRELOADED at app startup (FastAPI lifespan), not
-  lazily on first request — first-load costs ~2.5 min and would make the
-  first real request of a fresh container look broken.
+- No torch / no HF model downloads: embeddings are hosted Gemini API calls
+  (`GEMINI_API_KEY`, free tier). The image is plain python:3.12-slim +
+  requirements.txt; there is no startup preload step. Existing vectors
+  created with the old nomic model are incompatible — re-upload affected
+  project files.
 - Post-deploy smoke: cold-start a container, confirm upload+chat latency is
   normal on the very first request.

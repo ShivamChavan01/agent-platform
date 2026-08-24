@@ -1,6 +1,5 @@
 import pytest
 
-from app.embeddings import DOCUMENT_PREFIX, QUERY_PREFIX
 from app.rag import chunk_text
 from conftest import auth_headers, register
 
@@ -55,23 +54,6 @@ def test_chunk_text_three_chunks_reassemble():
     assert len(chunks) == 4  # starts at 0, 850, 1700, 2550
     for prev, nxt in zip(chunks, chunks[1:]):
         assert nxt.startswith(prev[-150:])
-
-
-# ---------- Embedding prefix (TDD: prefix must exist before embed call) ----------
-
-
-def test_embed_prefix_constants():
-    assert DOCUMENT_PREFIX == "search_document: "
-    assert QUERY_PREFIX == "search_query: "
-
-
-def test_upload_prefixes_documents_before_embed(client, project_token, fake_embedder):
-    token, pid = project_token
-    resp = upload(client, token, pid, content="apple banana orange" * 400)
-    assert resp.status_code == 201
-    assert fake_embedder.embed_documents_calls
-    for call in fake_embedder.embed_documents_calls:
-        assert call.startswith(DOCUMENT_PREFIX)
 
 
 # ---------- Upload acceptance / validation ----------

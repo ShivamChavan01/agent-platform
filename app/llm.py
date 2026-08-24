@@ -38,7 +38,7 @@ class LLMClient:
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self._api_key = api_key or settings.openai_api_key
         self._base_url = base_url or settings.openai_base_url
-        self._fallback_api_key = settings.openai_fallback_api_key
+        self._fallback_api_key = settings.openai_fallback_api_key or settings.openai_api_key
         self._fallback_base_url = settings.openai_fallback_base_url
         self._fallback_model = settings.openai_fallback_model or settings.default_model
         self._client: OpenAI | None = None

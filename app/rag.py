@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.embeddings import DOCUMENT_PREFIX, QUERY_PREFIX, Embedder
+from app.embeddings import Embedder
 from app.models import FileChunk, Project
 
 CHUNK_SIZE = 1000
@@ -91,13 +91,11 @@ def extract_text(filename: str, data: bytes) -> str:
 
 
 def embed_chunks(embedder: Embedder, chunks: list[str]) -> list[list[float]]:
-    # Task prefix is REQUIRED for nomic-embed-text-v1.5 retrieval quality.
-    prefixed = [f"{DOCUMENT_PREFIX}{c}" for c in chunks]
-    return embedder.embed_documents(prefixed)
+    return embedder.embed_documents(chunks)
 
 
 def embed_query(embedder: Embedder, query: str) -> list[float]:
-    return embedder.embed_query(f"{QUERY_PREFIX}{query}")
+    return embedder.embed_query(query)
 
 
 def search_chunks(

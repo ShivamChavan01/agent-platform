@@ -48,6 +48,13 @@ export const MODEL_CATALOG: ModelOption[] = [
   { id: "hy3-preview", label: "HY3 Preview", description: "Hyperbolic 3 preview" },
   { id: "gpt-5.6-luna", label: "GPT-5.6 Luna", description: "OpenAI-class model via opencode" },
   { id: "grok-4.5", label: "Grok 4.5", description: "xAI flagship model" },
+  { id: "deepseek-v4-flash-free", label: "DeepSeek V4 Flash Free", description: "Free via OpenCode Zen (fallback)" },
+  { id: "big-pickle", label: "Big Pickle (Free)", description: "Stealth model, free via OpenCode Zen (fallback)" },
+  { id: "mimo-v2.5-free", label: "MiMo-V2.5 Free", description: "Latest Mimo model, free via OpenCode Zen (fallback)" },
+  { id: "hy3-free", label: "Hy3 Free", description: "Hyperbolic 3 model, free via OpenCode Zen (fallback)" },
+  { id: "laguna-s-2.1-free", label: "Laguna S 2.1 Free", description: "Free via OpenCode Zen (fallback)" },
+  { id: "nemotron-3-ultra-free", label: "Nemotron 3 Ultra Free", description: "NVIDIA flagship, free via OpenCode Zen (fallback)" },
+  { id: "nemotron-3.5-lightning-free", label: "Nemotron 3.5 Lightning Free", description: "NVIDIA lightning model, free via OpenCode Zen (fallback)" },
 ];
 
 interface SidebarProps {
