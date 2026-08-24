@@ -18,9 +18,9 @@ enforced usage limits.
 
 Built as a take-home assignment for yellow.ai (SDE-1) — but engineered like a
 real product: real auth, real persistence, resilient LLM routing, a test suite
-of 119 tests, and a live public deployment.
+of 120 tests, and a live public deployment.
 
-- **Live demo:** https://openagent.up.railway.app
+- **Live demo:** https://agent-platform-popb.onrender.com
 - **Repo:** https://github.com/ShivamChavan01/agent-platform
 
 ---
@@ -40,13 +40,18 @@ of 119 tests, and a live public deployment.
   with syntax highlighting.
 
 ### Multi-model support
-- **Any model under the opencode API** — DeepSeek V4 Flash (default) / V4 Pro,
-  MiniMax M3/M2.7/M2.5, Kimi K3/K2.7/K2.5, GLM 5.2/5.1/5, Qwen 3.8/3.7/3.6/3.5,
-  Mimo V2 Omni/2.5 Pro/2.5, HY3, GPT-5.6 Luna, Grok 4.5 — all through one
+- **25 models, each verified live against the provider** — free tier:
+  ox-alpha, DeepSeek V4 Flash Free, MiMo-V2.5 Free, Hy3 Free, Laguna S 2.1
+  Free, Nemotron 3 Ultra/Lightning Free; paid: DeepSeek V4 Flash (default) /
+  V4 Pro, MiniMax M3/M2.5, Kimi K3/K2.7 Code/K2.6/K2.5, GLM 5.2/5.1/5,
+  Qwen 3.8/3.7/3.6/3.5, Mimo V2.5 Pro/V2.5, HY3 — all through one
   OpenAI-compatible interface, selectable per project **and mid-conversation**.
+  Free (`*-free`) models are routed automatically to the endpoint that serves
+  them; dead models are pruned from the picker via a periodic live audit.
 - **Automatic provider fallback** — if the primary provider fails before the
   first token (rate limit, connection error, 5xx), the same request is retried
-  on a secondary provider (OpenRouter). The UI badges fallback responses live.
+  on a secondary provider (OpenCode Zen free models). The UI badges fallback
+  responses live.
 
 ### Agentic tool use
 - **Tool-calling loop** (up to 4 rounds per message) — the model decides which
@@ -103,7 +108,7 @@ of 119 tests, and a live public deployment.
 | Storage | **Supabase Storage** (`project-files` bucket), local dir fallback |
 | Web search | **Tavily API** (optional, gated) |
 | Frontend | **React 18**, TypeScript, **Vite**, Tailwind CSS, React Router, react-markdown |
-| Deployment | Multi-stage **Docker**, **Railway** (auto-deploy from `main`) |
+| Deployment | Multi-stage **Docker**, **Render** (auto-deploy from `main`) |
 
 ---
 
@@ -209,7 +214,7 @@ Other free fallback models: `mimo-v2.5-free`, `hy3-free`,
 
 ---
 
-## Deploy (Docker / Railway)
+## Deploy (Docker / Render)
 
 The Dockerfile is a multi-stage build:
 1. Node stage builds the React frontend (`npm run build`).
@@ -223,16 +228,27 @@ docker build -t agent-platform .
 docker run --env-file .env -p 8000:8000 agent-platform
 ```
 
-**Railway:** point a service at the repo root (Dockerfile is auto-detected),
-set the env vars above, attach Supabase Postgres, then run the migrations:
+**Render (current host):** New → Web Service → connect the GitHub repo
+(Dockerfile auto-detected), instance type Free, health check path `/health`,
+then set the env vars from the table above. Every push to `main` triggers an
+automatic deploy. The free instance spins down after ~15 min idle and wakes
+in ~30–60 s — acceptable for a demo; any paid tier removes the spin-down.
+
+<details>
+<summary>Previously hosted on Railway</summary>
+
+The first public deployment ran on Railway (`openagent.up.railway.app`) until
+its free credits ran out; the same Dockerfile deploys there unchanged
+(point a service at the repo root, set env vars, attach Supabase Postgres).
+</details>
+
+One-time DB setup (Supabase Postgres), from a machine with `DATABASE_URL`:
 
 ```bash
 python -m scripts.init_db            # fresh DB
 python -m scripts.migrate_settings   # idempotent: users.name/preferences, pinned, usage_events
 python -m scripts.migrate_reasoning  # idempotent: messages.reasoning
 ```
-
-Every push to `main` triggers an automatic Railway deploy.
 
 ---
 
@@ -308,7 +324,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-**119 tests** covering: auth (register/login/me/preferences/usage), project
+**120 tests** covering: auth (register/login/me/preferences/usage), project
 CRUD + per-user isolation, conversations (rename/pin/delete), chat prompt
 construction, SSE event streaming, LLM provider fallback, reasoning-effort
 routing, tool calling (calculator / search_project_files), upload + RAG, and
