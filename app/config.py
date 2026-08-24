@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     # the demo keeps working for free when the paid primary is down/limited.
     openai_fallback_api_key: str = ""
     openai_fallback_base_url: str = "https://opencode.ai/zen/v1"
-    openai_fallback_model: str = "deepseek-v4-flash-free"
+    # Verified live (2026-08): deepseek-v4-flash-free and x-preview-f-free
+    # currently 4xx/5xx upstream, so the default is a working free model.
+    openai_fallback_model: str = "nemotron-3-ultra-free"
 
     # Embeddings are produced by the hosted Gemini API (free tier) — no local
     # model. Key optional at boot; upload/search fail with a clear error when

@@ -169,11 +169,11 @@ the provider is env-swappable with zero code changes.
   ```
 
 The optional fallback defaults to **OpenCode Zen free models**
-(`https://opencode.ai/zen/v1`, model `deepseek-v4-flash-free`) — when the
+(`https://opencode.ai/zen/v1`, model `nemotron-3-ultra-free`) — when the
 primary is down or rate-limited the demo keeps working for free. If
 `OPENAI_FALLBACK_API_KEY` is empty, the primary `OPENAI_API_KEY` is reused.
-Other free fallback models: `big-pickle`, `mimo-v2.5-free`, `hy3-free`,
-`laguna-s-2.1-free`, `nemotron-3-ultra-free`, `nemotron-3.5-lightning-free`
+Other free fallback models: `mimo-v2.5-free`, `hy3-free`,
+`laguna-s-2.1-free`, `nemotron-3.5-lightning-free`
 (Zen key from https://opencode.ai/auth; free models cost $0).
 
 ### Configuration reference
@@ -189,7 +189,7 @@ Other free fallback models: `big-pickle`, `mimo-v2.5-free`, `hy3-free`,
 | `DEFAULT_MODEL` | `deepseek/deepseek-v4-flash` | Model used when a project sets none |
 | `OPENAI_FALLBACK_API_KEY` | (empty) | Secondary provider key — when empty, the primary `OPENAI_API_KEY` is reused |
 | `OPENAI_FALLBACK_BASE_URL` | `https://opencode.ai/zen/v1` | Fallback endpoint (default: OpenCode Zen free models) |
-| `OPENAI_FALLBACK_MODEL` | `deepseek-v4-flash-free` | Fallback model id (must exist on the fallback provider) |
+| `OPENAI_FALLBACK_MODEL` | `nemotron-3-ultra-free` | Fallback model id (must exist on the fallback provider) |
 | `GEMINI_API_KEY` | (empty) | Gemini API key for embeddings (free tier, aistudio.google.com/apikey) |
 | `GEMINI_EMBED_MODEL` | `gemini-embedding-001` | Hosted embedding model |
 | `EMBED_DIM` | `768` | Vector dimension (must match the pgvector column) |
