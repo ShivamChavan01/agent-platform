@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,10 +17,20 @@ _FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 _FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
 
 _KEEP_ALIVE_INTERVAL_S = 600
+# Ping only during waking hours (IST, no DST) — nobody tests at night, so the
+# instance is allowed to sleep then. Saves ~1/3 of the 750 free instance
+# hours/month; the first visitor after the window eats one cold start.
+_KEEP_ALIVE_IST_START = 7   # 07:00 IST
+_KEEP_ALIVE_IST_END = 23    # 23:00 IST
 
 
 def _error_response(status_code: int, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"error": message})
+
+
+def _ist_hour() -> int:
+    utc_hour = time.gmtime().tm_hour
+    return (utc_hour + 5) % 24 if time.gmtime().tm_min < 30 else (utc_hour + 6) % 24
 
 
 async def _keep_alive_loop() -> None:
@@ -30,8 +41,15 @@ async def _keep_alive_loop() -> None:
 
     log = logging.getLogger("uvicorn.error")
     url = os.environ["RENDER_EXTERNAL_URL"].rstrip("/") + "/health"
-    log.info("keep-alive enabled: pinging %s every %ss", url, _KEEP_ALIVE_INTERVAL_S)
+    log.info(
+        "keep-alive enabled: pinging %s every %ss between %02d:00-%02d:00 IST",
+        url, _KEEP_ALIVE_INTERVAL_S, _KEEP_ALIVE_IST_START, _KEEP_ALIVE_IST_END,
+    )
     while True:
+        hour = _ist_hour()
+        if not (_KEEP_ALIVE_IST_START <= hour < _KEEP_ALIVE_IST_END):
+            await asyncio.sleep(_KEEP_ALIVE_INTERVAL_S)
+            continue
         await asyncio.sleep(_KEEP_ALIVE_INTERVAL_S)
         try:
             await asyncio.to_thread(urllib.request.urlopen, url, None, 30)
