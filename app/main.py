@@ -1,4 +1,9 @@
+import asyncio
+import os
+from contextlib import asynccontextmanager
 from pathlib import Path
+
+import urllib.request
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -10,12 +15,41 @@ from app.routers import auth, conversations, files, projects
 _FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 _FRONTEND_INDEX = _FRONTEND_DIST / "index.html"
 
+_KEEP_ALIVE_INTERVAL_S = 600
+
 
 def _error_response(status_code: int, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"error": message})
 
 
-app = FastAPI(title="Agent Platform", version="0.1.0")
+async def _keep_alive_loop() -> None:
+    """Ping our own /health periodically so the Render free instance never
+    idles long enough to spin down. Only runs when RENDER_EXTERNAL_URL is
+    set (i.e. on Render) — local dev and tests never start it."""
+    import logging
+
+    log = logging.getLogger("uvicorn.error")
+    url = os.environ["RENDER_EXTERNAL_URL"].rstrip("/") + "/health"
+    log.info("keep-alive enabled: pinging %s every %ss", url, _KEEP_ALIVE_INTERVAL_S)
+    while True:
+        await asyncio.sleep(_KEEP_ALIVE_INTERVAL_S)
+        try:
+            await asyncio.to_thread(urllib.request.urlopen, url, None, 30)
+        except Exception as exc:
+            log.warning("keep-alive ping failed: %s", exc)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    if os.environ.get("RENDER_EXTERNAL_URL"):
+        task = asyncio.create_task(_keep_alive_loop())
+        yield
+        task.cancel()
+    else:
+        yield
+
+
+app = FastAPI(title="Agent Platform", version="0.1.0", lifespan=lifespan)
 
 
 @app.exception_handler(StarletteHTTPException)
