@@ -128,6 +128,50 @@ def test_stream_raises_when_no_fallback_configured():
         list(llm.stream("m", [{"role": "user", "content": "x"}]))
 
 
+def test_stream_routes_free_models_to_fallback_endpoint():
+    called = []
+
+    def primary_create(**kw):
+        called.append(("primary", kw["model"]))
+        raise _ratelimit()
+
+    def fallback_create(**kw):
+        called.append(("fallback", kw["model"]))
+        return _Stream([_Chunk(content="free reply")])
+
+    llm = _client_with_fallbacks(primary_create, fallback_create)
+    events = list(llm.stream("deepseek-v4-flash-free", [{"role": "user", "content": "hi"}]))
+
+    # Free models only exist on the fallback (/zen/v1) endpoint — they must be
+    # attempted there FIRST, with the paid endpoint as the safety net.
+    assert called[0] == ("fallback", "deepseek-v4-flash-free")
+
+    result = events[-1]
+    assert result["type"] == "result"
+    assert result["provider"] == "primary"
+    assert result["model"] == "deepseek-v4-flash-free"
+    assert result["content"] == "free reply"
+
+
+def test_stream_routes_free_models_to_paid_endpoint_when_free_attempt_fails():
+    called = []
+
+    def primary_create(**kw):
+        called.append(("primary", kw["model"]))
+        return _Stream([_Chunk(content="paid reply")])
+
+    def fallback_create(**kw):
+        called.append(("fallback", kw["model"]))
+        raise _ratelimit()
+
+    llm = _client_with_fallbacks(primary_create, fallback_create)
+    events = list(llm.stream("hy3-free", [{"role": "user", "content": "hi"}]))
+
+    assert [c[0] for c in called] == ["fallback", "primary"]
+    assert called[1][1] == "deepseek/deepseek-v4-flash"
+    assert events[-1]["provider"] == "fallback"
+
+
 def test_non_retryable_error_is_not_retried_on_fallback():
     called = []
 

@@ -87,9 +87,17 @@ class LLMClient:
         Mid-stream failures are NOT retried (the client has already rendered
         text from the failing provider).
         """
-        attempts: list[tuple[OpenAI, str, str]] = [(self._get_client(), model, "primary")]
-        if self._fallback_api_key:
-            attempts.append((self._get_fallback_client(), self._fallback_model, "fallback"))
+        attempts: list[tuple[OpenAI, str, str]] = []
+        if model.endswith("-free") and self._fallback_api_key:
+            # Free-tier model ids only exist on the fallback endpoint
+            # (opencode /zen/v1), never on the primary (/zen/go/v1) — route
+            # them there first, paid endpoint as the safety net.
+            attempts.append((self._get_fallback_client(), model, "primary"))
+            attempts.append((self._get_client(), self._fallback_model, "fallback"))
+        else:
+            attempts.append((self._get_client(), model, "primary"))
+            if self._fallback_api_key:
+                attempts.append((self._get_fallback_client(), self._fallback_model, "fallback"))
 
         last_exc: Exception | None = None
         for client, attempt_model, provider in attempts:
